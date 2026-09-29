@@ -77,8 +77,14 @@ jobs:
           git fetch --tags origin
           mapfile -t stable_tags < <(git tag --list 'v*' |
             grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | LC_ALL=C sort -V)
-          if [ "${stable_tags[0]:-}" != "v0.1.0" ]; then
+          # Before the first stable tag, allow v0.1.0 RCs and manual builds.
+          if [ "${#stable_tags[@]}" -gt 0 ] && [ "${stable_tags[0]}" != "v0.1.0" ]; then
             echo "::error::The first stable tag must be v0.1.0 (versionCode 1)."
+            exit 1
+          fi
+          if [ "${#stable_tags[@]}" -eq 0 ] && [ "$GITHUB_EVENT_NAME" = "push" ] &&
+             [ "${TAG%%-*}" != "v0.1.0" ]; then
+            echo "::error::The first release must be v0.1.0 (or its prerelease)."
             exit 1
           fi
 
@@ -356,13 +362,12 @@ jobs:
           このビルドは Play ストアを経由しないため、端末の「提供元不明のアプリ」
           （不明なアプリのインストール）を許可する必要があります。
 
-          v0.1.0 のアプリ ID は `com.example.androshogi`、この APK は
-          `org.androshogi` です。別アプリとしてインストールされ、
-          アプリ内に保存した棋譜・解析結果・設定は自動移行されません。
-          旧版を削除する前に、必要な棋譜を旧版からコピーまたは共有してください。
-          以前の debug APK が `org.androshogi` として入っている場合は
-          署名が異なるため上書きできません。必要なデータを退避してから
-          旧 debug APK をアンインストールしてください。
+          この APK のアプリ ID は `org.androshogi` です。以前のテスト版で
+          同じアプリ ID かつこの APK より大きい versionCode のものを
+          インストールしている場合、上書きできません。必要な棋譜・解析結果を
+          退避してから旧版をアンインストールしてください。
+          以前の debug APK が `org.androshogi` として入っている場合も、
+          署名が異なるため同様に上書きできません。
 
           **署名について**: 通常の APK は正式なリリース鍵で署名しています。
           手動ビルドで同梱する debug APK はデバッグ用の鍵で署名します。

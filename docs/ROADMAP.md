@@ -1,12 +1,14 @@
 # AndroShogi 開発ロードマップ
 
-この文書は、現在の実装に対する**今後の作業計画**だけを管理します。
-完了した変更の詳細は Git の履歴と Release / Pull Request を参照してください。
+この文書は、新しいリポジトリに含まれる実装状況と今後の作業計画を管理します。
+旧リポジトリでの作業経緯は、その履歴と Release / Pull Request を参照してください。
 現在確認されている不具合は [KNOWN_ISSUES.md](KNOWN_ISSUES.md) に分離します。
 
 ## 現在地
 
-v0.1.0 では、将棋の棋譜をやねうら王 NNUE で検討するための基本機能が一通り成立しました。
+このリポジトリは orphan の単一コミットから始め、最初の正式リリースを **v0.1.0（versionCode 1）** とします。
+現在のコードには、将棋の棋譜をやねうら王 NNUE で検討するための基本機能があります。
+評価関数は APK に同梱せず、利用者が設定画面から `nn.bin` を選択します。
 
 - 盤面操作、合法手、成り／不成、持駒、盤反転
 - KIF の読み込み、BOD 初期局面、KIF のコピー／共有
@@ -18,33 +20,30 @@ v0.1.0 では、将棋の棋譜をやねうら王 NNUE で検討するための�
 - JVM unit test / Android instrumentation test / GitHub Actions
 - GitHub Releases からの ABI 別 APK 配布
 
-2026-09-22 時点で、コード見直しで列挙した既知不具合 #1–#15 はすべて解消済みです。
-
-次の目標は **v0.2.0 を、内部構造と配布基盤を固めた公開版にすること**です。
-新機能を大量に追加するより、アプリの identity、署名、コード構造、回帰テストを先に安定させます。
+旧リポジトリで列挙した既知不具合 #1–#15 は修正済みです。
+この開始点から CI と実機で最終確認し、v0.1.0 を公開します。
 
 ---
 
-## v0.2.0
+## v0.1.0 公開準備
 
 ### 1. アプリの identity と配布基盤を確定する
 
-v0.2.0 以降で変えにくい項目を最初に決めます。
+v0.1.0 の公開前に、アプリ ID、署名、採番を確認します。
 
 - [x] 正式なアプリ identity を反映する
   - [x] 表示名は `AndroShogi` に確定
   - [x] `applicationId` は `org.androshogi` に確定
   - [x] Java / Android の `namespace` は `org.androshogi` に確定
   - [x] Manifest の Application / Activity 参照を現在の package 構造に追従
-  - v0.1.0 の `com.example.androshogi` とは Android 上で別アプリとして扱われる
-- [x] 正式な release keystore を作成し、v0.2.0 以降は同じ鍵を継続利用する
+- [x] 正式な release keystore を作成し、v0.1.0 以降は同じ鍵を継続利用する
 - [x] GitHub Actions の release build を正式鍵で署名する
 - [x] `versionCode` を正式版タグの順番で単調増加させる（`v0.1.0=1`、`v0.2.0=2`。RC は正式版と同じ番号）
 - [x] Release ワークフローで release APK の署名と version 情報を確認する
 - [ ] 必要性を確認したうえで R8 / minify を検討する
 
-v0.1.0 が debug key 署名のままなら、正式鍵へ切り替えた v0.2.0 は上書きインストールできない可能性がある。
-その場合は v0.2.0 の release note で一度アンインストールが必要であることを明記する。
+旧テスト版の `org.androshogi` が versionCode 2 で端末に入っている場合、
+versionCode 1 の新しい v0.1.0 は上書きできない。必要なデータを退避してから旧版をアンインストールする。
 
 ### 2. Java パッケージ構造を整理する
 
@@ -126,7 +125,7 @@ JNI wrapper の package 変更では、`jni.cpp` の関数名にも完全修飾�
 KIF の共有入出力まで同時に管理している。
 単にファイルが長いことよりも、複数の状態機械が同じ Activity の field と callback で結合していることが保守上の問題になる。
 
-v0.2.0 では全面的な MVVM 化や大規模な architecture 変更は行わず、
+v0.1.0 では全面的な MVVM 化や大規模な architecture 変更は行わず、
 **独立した状態管理・進行管理だけを壊しにくい単位で外へ出す**。
 UI の表示や Android lifecycle に直接関係する処理は `MainActivity` に残す。
 
@@ -156,7 +155,7 @@ UI の表示や Android lifecycle に直接関係する処理は `MainActivity` 
   - 最終局面で正しく完了する
 
 `EngineSession` 自体は既に process / search の責務を持っているため、
-v0.2.0 では新しい `EngineController` を先に導入しない。
+v0.1.0 では新しい `EngineController` を先に導入しない。
 `AnalysisController` 分離後も `MainActivity` から `EngineSession` を直接扱う構造で十分かを改めて判断する。
 
 #### 3.2 ゲーム状態を `GameSession` にまとめる
@@ -197,10 +196,10 @@ long gameCreatedAt
   - startup load 完了前の誤保存防止
   - game list を開く前に現在状態の保存を完了する処理
 - [ ] 既存の `GameStore` は低レベルの保存 API として維持する
-- [x] クラス追加の効果が小さいため、v0.2.0 では `MainActivity` に残す
+- [x] クラス追加の効果が小さいため、v0.1.0 では `MainActivity` に残す
 
 現状の save / load は単一の `ExecutorService`、load 世代番号、起動時の pending 状態で調停している。
-これらは Activity の終了判定と UI callback にも接しているため、v0.2.0 では分離せず維持する。
+これらは Activity の終了判定と UI callback にも接しているため、v0.1.0 では分離せず維持する。
 保存順序・古い load の棄却・起動時の誤保存・一覧表示前の保存は引き続き回帰確認する。
 
 この段階は `AnalysisController` と `GameSession` より優先度を下げる。
@@ -208,7 +207,7 @@ long gameCreatedAt
 
 #### 3.4 `MainActivity` に残す責務
 
-v0.2.0 完了時の `MainActivity` は、Android UI の入口として次を中心にする。
+v0.1.0 公開時の `MainActivity` は、Android UI の入口として次を中心にする。
 
 - View binding / listener 登録
 - menu / dialog / Toast などの UI
@@ -229,7 +228,7 @@ v0.2.0 完了時の `MainActivity` は、Android UI の入口として次を中�
 非同期 save / load の競合制御（効果が十分なら）
 ```
 
-#### 3.5 v0.2.0 では後回しにするもの
+#### 3.5 v0.1.0 では後回しにするもの
 
 次は今回の `MainActivity` 整理の必須条件にしない。
 
@@ -263,14 +262,14 @@ Controller / session 分離後に Activity lifecycle から engine state をさ�
   - [ ] 起動失敗時: 起動できない場合のメッセージを実機で確認する
 - [x] 長い棋譜解析でメモリが増え続けないことを確認する（2026-09-24、実機で166手を1手3秒で解析。提示された約5分間のエンジン TOTAL PSS は342,155–343,034 KBで持続増加なし。実機での1回の確認）
 - [x] Activity 終了後にやねうら王プロセスが残らないことを確認する（2026-09-24、解析後にアプリを終了し、`adb shell ps -A -o PID,PPID,ARGS` で `YaneuraOu_NNUE` を含むプロセスが残っていないことを実機確認）
-- [x] 旧同梱エンジンの `FV_SCALE` 既定値を実機ログで確認する（2026-09-23、`default 24`）。非同梱版への差し替え後は、使用する評価関数に応じて再確認する
+- [x] 評価関数非同梱版の `FV_SCALE` 既定値 `16` を実機ログで確認する（2026-09-26）。評価関数に合わせて設定できるようにする
 - [ ] 中断された探索結果は保存せず、正常終了した探索結果は時間・depth に関係なく最新結果で上書きする現在の方針を維持する
   - [x] 解析中断時に既存結果の上書きが起こらないことを実機で確認（2026-09-24）
   - [ ] 正常終了時に、解析時間・depth にかかわらず最新結果へ上書きされることを確認する
 
-### 5. v0.2.0 の機能追加
+### 5. v0.1.0 に含む機能
 
-v0.2.0 では大きなデータモデル変更を避け、既存機能につながるものを優先する。
+v0.1.0 では大きなデータモデル変更を避け、既存機能につながるものを優先する。
 
 第一候補:
 
@@ -278,30 +277,30 @@ v0.2.0 では大きなデータモデル変更を避け、既存機能につな�
 - [x] KIF ファイルとして保存する（.kif は Shift_JIS、.kifu は UTF-8）
 - [x] Shift_JIS / UTF-8 の扱いを明示し、round-trip test を追加する
 
-v0.2.0 に含める機能は原則ここまでとし、KI2 / CSA、棋譜分岐などは後回しにする。
+v0.1.0 に含める棋譜形式の追加はここまでとし、KI2 / CSA、棋譜分岐などは後回しにする。
 
-### 6. v0.2.0 リリース判定
+### 6. v0.1.0 リリース判定
 
 - [ ] JVM unit test がすべて成功
 - [ ] API 34 emulator の instrumentation test が成功
 - [ ] arm64-v8a 実機で smoke test
 - [ ] 起動、盤面操作、KIF 読み込み、共有受け取り、手動検討、棋譜解析、保存／復元、ダークモードを確認
 - [ ] release APK の署名・versionCode・versionName を確認
-- [x] 再配布条件を確認できない水匠5の評価関数を含む旧バイナリを、評価関数を含まないやねうら王通常版に差し替える（作業ブランチ `feat/external-nnue-eval`）
+- [x] 再配布条件を確認できない水匠5の評価関数を含む旧バイナリを、評価関数を含まないやねうら王通常版に差し替える
 - [x] 利用者が取得した評価関数を設定画面から選択・配置し、`EvalDir` を設定できるようにする（CI と実機での動作確認は別項目）
 - [x] 評価関数設定後、初回起動・検討・解析とエラー表示を CI と実機で確認する（2026-09-27、実機での確認をユーザーが報告）
 - [x] KIF / KIFU の拡張子と保存先の記憶を実機で確認する（2026-09-27、ユーザー報告）
-- [x] Release の説明に評価関数の準備・設定、旧版からの移行、ソースへのリンクを追加する
-- [x] 評価関数同梱の旧 v0.1.0 系 APK を Releases から取り下げる（2026-09-27、ユーザー報告。Releases に APK が残っていないことを確認）
-- [ ] 旧評価関数同梱バイナリを Git 履歴から除去し、旧タグを整理する。現行ワークフローは `v0.1.0` タグを数えて `versionCode=2` を割り当てるため、タグを削除・付け替える場合は採番方式を同時に見直す
-- [ ] v0.2.0-rc1 を作り実機確認
-- [ ] v0.2.0 を公開
+- [x] Release の説明に評価関数の準備・設定、旧テスト版からの移行、ソースへのリンクを追加する
+- [x] orphan の単一開始コミットに切り替え、旧タグを持ち込まず `v0.1.0=1` から採番する
+- [ ] 新リポジトリにリリース署名用の Actions Secrets を設定する
+- [ ] `v0.1.0-rc1` を作り実機確認
+- [ ] `v0.1.0` を公開
 
 ---
 
-## v0.3.0 以降の候補
+## v0.2.0 以降の候補
 
-次の項目は重要だが、v0.2.0 の release blocker にはしない。
+次の項目は重要だが、v0.1.0 の release blocker にはしない。
 
 - Activity 再生成に耐える ViewModel / retained state への移行
 - Foreground Service によるバックグラウンド棋譜解析

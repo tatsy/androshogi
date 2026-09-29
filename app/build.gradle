@@ -12,7 +12,7 @@ android {
         targetSdk 34
         ndkVersion '27.2.12479018'
         // 公式ビルドは Actions がリリースタグから計算した値を渡す。
-        versionCode = (project.findProperty('appVersionCode') ?: '2').toString().toInteger()
+        versionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
         // 設定画面が表示するバージョン。ワークフローが -PappVersionName で渡す
         // （タグ付きのビルドならタグ名、それ以外はコミット SHA の先頭 6 桁）。
         // 手元のビルドは何のコミットのものとも言えないので "dev" のままにする。
