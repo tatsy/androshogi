@@ -49,7 +49,3 @@ AndroShogi は GNU General Public License v3.0（`LICENSE`）で公開してい�
 - 配置: `app/src/python/YujiMai-Regular.ttf`
 - 出典: https://fonts.google.com/specimen/Yuji+Mai
 - 駒画像（`res/drawable*/koma_*.png`）を `app/src/python/koma.py` で生成する際に使用しています。
-
-## 画像
-
-- `app/src/main/res/drawable/wood.jpg`（盤の木目）は AndroShogi 作者が Photoshop で制作した画像です。

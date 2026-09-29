@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -64,8 +65,8 @@ public class WinRateGraphView extends View {
 
     private final float density;
     /** Room for the labels: percentages on the left, move numbers below. */
-    private float leftInset;
-    private float bottomInset;
+    private final float leftInset;
+    private final float bottomInset;
 
     public WinRateGraphView(Context context) {
         this(context, null);
@@ -74,7 +75,8 @@ public class WinRateGraphView extends View {
     public WinRateGraphView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
         density = getResources().getDisplayMetrics().density;
-        float sp = getResources().getDisplayMetrics().scaledDensity;
+        leftInset = 30 * density;
+        bottomInset = 16 * density;
 
         int outline = MaterialColors.getColor(this, com.google.android.material.R.attr.colorOutline, Color.LTGRAY);
         int onSurface = MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant, Color.DKGRAY);
@@ -101,10 +103,7 @@ public class WinRateGraphView extends View {
         markerPaint.setColor(marker);
 
         labelPaint.setColor(onSurface);
-        labelPaint.setTextSize(10 * sp);
-
-        leftInset = 30 * density;
-        bottomInset = 16 * density;
+        labelPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10.0f, getResources().getDisplayMetrics()));
     }
 
     /** Shows {@code record} with the results in {@code analysis}. */

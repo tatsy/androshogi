@@ -1,3 +1,7 @@
+# How to contribute
+
+開発の現状・課題・今後の計画は [`docs/ROADMAP.md`](docs/ROADMAP.md) を、
+未修正の不具合は [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md) を参照してください。
 
 ## リリース
 
@@ -114,6 +118,58 @@ Háo の評価関数を使う場合は `20` を選びます。
 `usinewgame` を送って常駐させ、以後は `position sfen ...` → `go movetime ...`
 → `stop` を繰り返すだけなので、USI に準拠した他のエンジンに差し替えることも
 可能です。
+
+## 構成
+
+局面の管理と合法手生成は cshogi を JNI 経由で呼び出し、思考はやねうら王を
+別プロセスとして起動して USI プロトコルで対話します。Android では
+`nativeLibraryDir` 配下のファイルしか実行できないため、エンジンは
+`libYaneuraOu_NNUE_<abi>.so` という名前で `jniLibs` に置いています
+（`extractNativeLibs` と `useLegacyPackaging` を有効にしているのはそのためです）。
+
+
+## ビルド
+
+### 必要なもの:
+
+| ツール | バージョン |
+| --- | --- |
+| JDK | 17 |
+| Android SDK Platform | 34 |
+| Android SDK Build-Tools | 34.0.0 |
+| NDK | 27.2.12479018 |
+| CMake | 3.18 以上（SDK 同梱の 3.22.1 で可） |
+| Gradle | 8.9（`gradlew` が取得） |
+| Android Gradle Plugin | 8.7.2 |
+
+### コマンド
+
+```sh
+./gradlew assembleDebug
+```
+
+Android Studio で開く場合は `File > Open` でリポジトリのルートを選択してください。
+`local.properties` に `sdk.dir` が必要です（Studio が自動生成します）。
+
+対応 ABI は `arm64-v8a`（実機）と `x86_64`（エミュレータ）です。
+minSdk は 29 です。
+
+## テスト
+
+```sh
+./gradlew testDebugUnitTest          # JVM 単体テスト
+./gradlew connectedDebugAndroidTest  # エミュレータ／実機での計測テスト
+```
+
+局面クラスが JNI に依存するため、`KifParser` などのテストは現状 `androidTest` 側に
+置く必要があります（`docs/ROADMAP.md` Phase 1 参照）。
+
+## テーマ
+
+Material3 の DayNight テーマを使い、部品の色はテーマ属性（`?attr/colorSurfaceVariant` など）
+で指定しています。盤・駒・矢印はテーマに関係なく同じ色です。設定 → 表示 → テーマで
+「システムに従う／ライト／ダーク」を選べます（`AppSettings.applyTheme`）。
+新しい画面部品を足すときは色をハードコードせず、テーマ属性を使ってください。
 
 ## 駒画像の生成
 

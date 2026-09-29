@@ -15,10 +15,10 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -33,13 +33,13 @@ jobs:
             "cmake;3.22.1"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # LicenseActivity shows copies of these files from res/raw; fail loudly if they drift.
       - name: Check that the bundled license texts match the repository copies
         run: |
           cmp LICENSE app/src/main/res/raw/license_gpl3.txt
-          cmp THIRD_PARTY_NOTICES.md app/src/main/res/raw/third_party_notices.txt
+          cmp docs/THIRD_PARTY_NOTICES.md app/src/main/res/raw/third_party_notices.txt
 
       # タグの付かないビルドは、どのコミットの APK なのかを名前にする。
       # プルリクエストの GITHUB_SHA は一時的なマージコミットのもので、
@@ -76,10 +76,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -102,7 +102,11 @@ jobs:
           for d in "$ANDROID_HOME"/ndk/*; do
             case "$d" in *27.2.12479018) ;; *) sudo rm -rf "$d" ;; esac
           done
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/node_modules /opt/ghc /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY"/CodeQL
+          sudo rm -rf /usr/share/dotnet \
+            /usr/local/lib/node_modules \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            "$AGENT_TOOLSDIRECTORY"/CodeQL
           df -h / | tail -1
 
       - name: Enable KVM for the emulator
@@ -112,7 +116,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Run connected tests
         uses: reactivecircus/android-emulator-runner@v2
@@ -136,3 +140,4 @@ jobs:
           name: androidTest-reports
           path: app/build/reports/androidTests/connected/
           if-no-files-found: ignore
+          retention-days: 7
