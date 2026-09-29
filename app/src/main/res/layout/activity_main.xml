@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- 上側のプレイヤー (通常は後手)。名前と、その側から見た勝率・評価値 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?attr/colorSurfaceVariant">
+
+        <TextView
+            android:id="@+id/white_info_view"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/default_white_name"
+            style="@style/PlayerInfoStyle"/>
+
+        <TextView
+            android:id="@+id/white_score_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/PlayerScoreStyle"/>
+    </LinearLayout>
+
+    <!-- 将棋盤 -->
+    <org.androshogi.ui.main.BoardView
+        android:id="@+id/board_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_margin="0dp"
+        android:background="@color/board_background"/>
+
+    <!-- 下側のプレイヤー (通常は先手) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?attr/colorSurfaceVariant">
+
+        <TextView
+            android:id="@+id/black_info_view"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/default_black_name"
+            style="@style/PlayerInfoStyle"/>
+
+        <TextView
+            android:id="@+id/black_score_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/PlayerScoreStyle"/>
+    </LinearLayout>
+
+    <!-- 操作ボタン -->
+    <LinearLayout
+        android:id="@+id/button_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:minHeight="0dp"
+        android:padding="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/menu_button"
+            android:text="@string/menu_text"
+            app:icon="@drawable/ic_menu"/>
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/flip_button"
+            android:text="@string/flip_text"
+            app:icon="@drawable/ic_rotate"/>
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/hint_button"
+            android:text="@string/hint_text"
+            app:icon="@drawable/ic_auto_awesome"/>
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/backward_button"
+            android:text="@string/backward_text"
+            app:icon="@drawable/ic_arrow_circle_left"/>
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/forward_button"
+            android:text="@string/forward_text"
+            app:icon="@drawable/ic_arrow_circle_right"/>
+    </LinearLayout>
+
+    <!-- 棋譜解析の進捗。解析中だけ表示し、盤面と読み筋は隠さない -->
+    <LinearLayout
+        android:id="@+id/analysis_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/analysis_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:fontFamily="@font/noto_sans_jp"/>
+
+        <ProgressBar
+            android:id="@+id/analysis_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/IconButton"
+            android:id="@+id/analysis_cancel_button"
+            android:text="@string/stop_text"
+            app:icon="@drawable/ic_cancel"/>
+    </LinearLayout>
+
+    <!-- 情報エリアの切り替え: 読み筋 / 棋譜 / グラフ -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/info_tabs"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="4dp"
+        app:singleSelection="true"
+        app:selectionRequired="true"
+        app:checkedButton="@id/tab_reading">
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/InfoTabButton"
+            android:id="@+id/tab_reading"
+            android:text="@string/tab_reading"/>
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/InfoTabButton"
+            android:id="@+id/tab_record"
+            android:text="@string/tab_record"/>
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/InfoTabButton"
+            android:id="@+id/tab_graph"
+            android:text="@string/tab_graph"/>
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <!-- 情報エリア。トグルで選ばれた 1 つだけを表示する -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginHorizontal="8dp"
+        android:background="@drawable/textarea_background">
+
+        <org.androshogi.ui.main.EngineView
+            android:id="@+id/engine_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="8dp"
+            android:textSize="12sp"
+            android:fontFamily="@font/noto_sans_jp" />
+
+        <!-- Padded so that a highlighted row stays inside the frame's stroke. -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/move_list_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="4dp"
+            android:visibility="gone" />
+
+        <org.androshogi.ui.main.WinRateGraphView
+            android:id="@+id/win_rate_graph"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

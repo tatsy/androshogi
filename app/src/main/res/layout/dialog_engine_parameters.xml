@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="1dp"
+    android:padding="8dp"
+    android:orientation="vertical">
+
+    <!-- 検討に使う時間 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="1手当たりの検討時間"
+        android:textSize="16sp"
+        android:layout_marginBottom="5dp" />
+    <Spinner
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/consider_time_spinner"
+        android:entries="@array/consider_time_choices"/>
+
+    <!-- 検討開始局面の選択 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="どこから検討しますか？"
+        android:textSize="16sp"
+        android:layout_marginTop="15dp"
+        android:layout_marginBottom="5dp" />
+
+    <RadioGroup
+        android:id="@+id/radio_group_start_position"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+        <RadioButton
+            android:id="@+id/radio_beginning"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="開始局面から"
+            android:checked="true" />
+        <RadioButton
+            android:id="@+id/radio_current_board"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="現在の局面から" />
+    </RadioGroup>
+</LinearLayout>

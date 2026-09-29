@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One move of the record: number, move in kanji, then black's win rate and score after it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="1dp"
+    android:background="@drawable/move_row_background"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/move_number"
+        style="@style/MoveListCell"
+        android:layout_width="32dp"
+        android:textAlignment="viewEnd"
+        android:textColor="?attr/colorOnSurfaceVariant" />
+
+    <TextView
+        android:id="@+id/move_text"
+        style="@style/MoveListCell"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp" />
+
+    <TextView
+        android:id="@+id/move_win_rate"
+        style="@style/MoveListCell"
+        android:layout_width="44dp"
+        android:textAlignment="viewEnd" />
+
+    <TextView
+        android:id="@+id/move_score"
+        style="@style/MoveListCell"
+        android:layout_width="56dp"
+        android:textAlignment="viewEnd" />
+</LinearLayout>

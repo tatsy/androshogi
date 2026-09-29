@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark variant. Surfaces and text come from Material3; only the accent is ours. -->
+    <style name="Base.Theme.Androshogi" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/theme_dark_primary</item>
+        <item name="colorOnPrimary">@color/theme_dark_on_primary</item>
+    </style>
+</resources>

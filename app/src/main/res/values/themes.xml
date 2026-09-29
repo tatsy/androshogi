@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme (light). The dark variant is in values-night. -->
+    <style name="Base.Theme.Androshogi" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/theme_light_primary</item>
+        <item name="colorOnPrimary">@color/theme_light_on_primary</item>
+    </style>
+
+    <style name="Theme.Androshogi" parent="Base.Theme.Androshogi" />
+
+    <!-- ダイアログ。ボタンの文字も RadioButton のチェックも colorPrimary で描かれるので、
+         面の上で読めるアクセントに差し替える。色は設定に応じて values-night 側に切り替わる。
+         ダイアログ自体の体裁はテーマの materialAlertDialogTheme が与えるので、
+         ここで上書きするのはアクセントだけにする。 -->
+    <style name="ThemeOverlay.Androshogi.AlertDialog" parent="">
+        <item name="colorPrimary">@color/accent_on_surface</item>
+    </style>
+</resources>

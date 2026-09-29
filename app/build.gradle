@@ -1,0 +1,100 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'org.androshogi'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "org.androshogi"
+        minSdk 29
+        targetSdk 34
+        ndkVersion '27.2.12479018'
+        // 公式ビルドは Actions がリリースタグから計算した値を渡す。
+        versionCode = (project.findProperty('appVersionCode') ?: '2').toString().toInteger()
+        // 設定画面が表示するバージョン。ワークフローが -PappVersionName で渡す
+        // （タグ付きのビルドならタグ名、それ以外はコミット SHA の先頭 6 桁）。
+        // 手元のビルドは何のコミットのものとも言えないので "dev" のままにする。
+        versionName = (project.findProperty('appVersionName') ?: 'dev').toString()
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            // AGP は splits.abi と ndk.abiFilters の併用を禁じているので、
+            // ABI ごとの APK は「1 ABI だけを対象にしたビルド」を繰り返して作る。
+            // リリース用ワークフローが -PtargetAbi=<abi> を付けて ABI の数だけ
+            // 実行する。指定がなければ従来どおり両方を含める。
+            if (project.hasProperty('targetAbi')) {
+                abiFilters project.property('targetAbi').toString()
+            } else {
+                abiFilters 'x86_64', 'arm64-v8a'
+            }
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments '-DCMAKE_VERBOSE_MAKEFILE=ON'
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv('ANDROID_RELEASE_KEYSTORE')
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('ANDROID_RELEASE_PASSWORD')
+                keyAlias 'androshogi'
+                keyPassword System.getenv('ANDROID_RELEASE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+        }
+    }
+    ndkVersion '27.2.12479018'
+    buildToolsVersion '34.0.0'
+}
+
+dependencies {
+    implementation libs.appcompat
+    implementation libs.material
+    implementation libs.activity
+    implementation libs.constraintlayout
+    implementation libs.preference
+    implementation libs.recyclerview
+    testImplementation libs.junit
+    // The org.json classes in android.jar are stubs on the host JVM; GameJsonTest needs the real ones.
+    testImplementation libs.json
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+}

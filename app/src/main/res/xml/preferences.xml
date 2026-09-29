@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:key="preference_screen">
+
+    <PreferenceCategory app:title="@string/pref_category_engine">
+        <Preference
+            app:key="engine_eval_file"
+            app:title="@string/pref_eval_file_title"
+            app:summary="@string/pref_eval_file_missing"/>
+        <ListPreference
+            app:key="engine_think_time"
+            app:title="@string/pref_think_time_title"
+            app:entries="@array/think_time_entries"
+            app:entryValues="@array/think_time_values"
+            app:defaultValue="10000"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
+            app:key="engine_multipv"
+            app:title="@string/pref_multipv_title"
+            app:entries="@array/multipv_entries"
+            app:entryValues="@array/multipv_values"
+            app:defaultValue="5"
+            app:useSimpleSummaryProvider="true"/>
+        <!-- Entries are filled in code: they depend on the device's core count. -->
+        <ListPreference
+            app:key="engine_threads"
+            app:title="@string/pref_threads_title"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
+            app:key="engine_hash_mb"
+            app:title="@string/pref_hash_title"
+            app:entries="@array/hash_mb_entries"
+            app:entryValues="@array/hash_mb_values"
+            app:defaultValue="64"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
+            app:key="engine_fv_scale"
+            app:title="@string/pref_fv_scale_title"
+            app:entries="@array/fv_scale_entries"
+            app:entryValues="@array/fv_scale_values"
+            app:defaultValue="16"
+            app:useSimpleSummaryProvider="true"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/pref_category_kifu_files">
+        <Preference
+            app:key="kif_save_folder"
+            app:title="@string/pref_kif_folder_title"
+            app:summary="@string/pref_kif_folder_missing"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/pref_category_display">
+        <ListPreference
+            app:key="app_theme"
+            app:title="@string/pref_theme_title"
+            app:entries="@array/theme_entries"
+            app:entryValues="@array/theme_values"
+            app:defaultValue="system"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
+            app:key="score_perspective"
+            app:title="@string/pref_score_perspective_title"
+            app:entries="@array/score_perspective_entries"
+            app:entryValues="@array/score_perspective_values"
+            app:defaultValue="black"
+            app:useSimpleSummaryProvider="true"/>
+        <ListPreference
+            app:key="win_rate_scale"
+            app:title="@string/pref_win_rate_scale_title"
+            app:entries="@array/win_rate_scale_entries"
+            app:entryValues="@array/win_rate_scale_values"
+            app:defaultValue="1000"
+            app:useSimpleSummaryProvider="true"/>
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/pref_category_info">
+        <Preference
+            app:key="app_version"
+            app:title="@string/pref_version_title"
+            app:selectable="false"/>
+        <Preference
+            app:key="licenses"
+            app:title="@string/pref_licenses_title"
+            app:summary="@string/pref_licenses_summary"/>
+    </PreferenceCategory>
+</PreferenceScreen>

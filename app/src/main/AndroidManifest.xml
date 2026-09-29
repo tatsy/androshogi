@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name=".AndroShogiApplication"
+        android:allowBackup="true"
+        android:extractNativeLibs="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:label="@string/app_name"
+        android:icon="@mipmap/app_icon"
+        android:roundIcon="@mipmap/app_icon"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Androshogi"
+        tools:targetApi="34">
+        <!-- singleTask: a KIF shared from another app reaches the running
+             instance through onNewIntent instead of starting a second one
+             with its own engine process. -->
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- KIF text or a .kif/.kifu file shared from another app -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".ui.settings.SettingsActivity"
+            android:label="@string/setting"
+            android:parentActivityName=".ui.main.MainActivity">
+            <!-- Optional: For "up navigation" to MainActivity -->
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".ui.main.MainActivity" />
+        </activity>
+        <activity android:name=".ui.settings.LicenseActivity"
+            android:label="@string/licenses"
+            android:parentActivityName=".ui.settings.SettingsActivity"/>
+        <activity android:name=".ui.games.GameListActivity"
+            android:label="@string/game_list"
+            android:parentActivityName=".ui.main.MainActivity"/>
+    </application>
+</manifest>

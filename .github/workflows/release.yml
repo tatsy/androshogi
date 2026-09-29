@@ -1,0 +1,441 @@
+name: Release
+
+# Two ways in. A v* tag is a real release and is cut from main only: a tag
+# whose commit is not contained in main fails in the verify job, before any
+# build runner is started. A manual run is a build to try on a device, is
+# published as a prerelease tagged build-<コミットの先頭6桁>, and may come
+# from any branch.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# Only the publish job needs to write; the build jobs just read the repo.
+permissions:
+  contents: read
+
+env:
+  ABIS: arm64-v8a x86_64
+
+jobs:
+  verify:
+    name: Check the commit and name the release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      # 以降のジョブは GITHUB_REF_NAME ではなくこれを使う。手動実行の
+      # GITHUB_REF_NAME はブランチ名で、スラッシュを含むとファイル名が壊れる。
+      tag: ${{ steps.name.outputs.tag }}
+      prerelease: ${{ steps.name.outputs.prerelease }}
+      version_code: ${{ steps.version.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # main has to be reachable for the ancestry check.
+          fetch-depth: 0
+
+      # 手動ビルドは端末で試すためのものなので、どのブランチからでも作れる。
+      # main しばりが要るのはタグを打った本番のリリースだけ。
+      - name: Verify the tag is on main
+        if: github.event_name == 'push'
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::${GITHUB_REF_NAME} (${GITHUB_SHA}) is not contained in main. Releases are built from main only."
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is on main."
+
+      - name: Name the release
+        id: name
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            # 手動実行にはタグがないので、コミットから作る。
+            tag="build-${GITHUB_SHA:0:6}"
+          fi
+          # ハイフンを含むタグ (v1.0.0-rc1, build-abc123) は prerelease 扱い。
+          case "$tag" in
+            *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${tag} (prerelease: ${prerelease})"
+
+      # Stable releases use their ordinal tag number (v0.1.0 = 1).
+      # RCs use the number reserved for their stable release; manual builds
+      # use the next number. Git tags are the source of truth.
+      - name: Assign versionCode
+        id: version
+        env:
+          TAG: ${{ steps.name.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+          mapfile -t stable_tags < <(git tag --list 'v*' |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | LC_ALL=C sort -V)
+          if [ "${stable_tags[0]:-}" != "v0.1.0" ]; then
+            echo "::error::The first stable tag must be v0.1.0 (versionCode 1)."
+            exit 1
+          fi
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::Unsupported release tag: $TAG"
+              exit 1
+            fi
+            base_tag="${TAG%%-*}"
+            version_code=0
+            for stable_tag in "${stable_tags[@]}"; do
+              first=$(printf '%s\n%s\n' "$stable_tag" "$base_tag" |
+                LC_ALL=C sort -V | sed -n '1p')
+              if [ "$first" != "$stable_tag" ]; then break; fi
+              version_code=$((version_code + 1))
+            done
+            if [ "$TAG" = "$base_tag" ]; then
+              if [[ ! " ${stable_tags[*]} " == *" $TAG "* ]]; then
+                echo "::error::Stable tag $TAG is missing from the fetched tags."
+                exit 1
+              fi
+            elif [[ ! " ${stable_tags[*]} " == *" $base_tag "* ]]; then
+              version_code=$((version_code + 1))
+            fi
+          else
+            version_code=$(("${#stable_tags[@]}" + 1))
+          fi
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "$TAG: versionCode $version_code"
+
+  build:
+    name: Build ${{ matrix.abi }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      # One broken ABI means no release, so stop the other build too.
+      fail-fast: true
+      matrix:
+        abi: [arm64-v8a, x86_64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK components
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore release keystore
+        env:
+          KEY_BASE64: ${{ secrets.KEY_BASE64 }}
+          KEY_SHA256: ${{ secrets.KEY_SHA256 }}
+        run: |
+          set -euo pipefail
+          : "${KEY_BASE64:?KEY_BASE64 is missing}"
+          : "${KEY_SHA256:?KEY_SHA256 is missing}"
+
+          umask 077
+          keystore="$RUNNER_TEMP/androshogi-release.jks"
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$keystore"
+
+          if ! printf '%s  %s\n' "$KEY_SHA256" "$keystore" |
+              sha256sum --check --status; then
+            echo "::error::Restored keystore SHA-256 does not match KEY_SHA256"
+            exit 1
+          fi
+
+      # The engine is ~65 MB per ABI, so one APK carrying both would be about
+      # 130 MB. -PtargetAbi narrows ndk.abiFilters to this job's ABI; each
+      # matrix job has its own workspace, so nothing from another ABI can
+      # leak into the output.
+      # 設定画面のバージョンをタグ名にして、リリースページの表示と一致させる。
+      - name: Build the release APK
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERSION_CODE: ${{ needs.verify.outputs.version_code }}
+          ANDROID_RELEASE_KEYSTORE: ${{ runner.temp }}/androshogi-release.jks
+          ANDROID_RELEASE_PASSWORD: ${{ secrets.KEY_PASS }}
+        run: |
+          ./gradlew --no-daemon \
+            -PtargetAbi="${{ matrix.abi }}" \
+            -PappVersionName="${TAG}" \
+            -PappVersionCode="${VERSION_CODE}" \
+            assembleRelease
+
+      - name: Check and name the APK
+        env:
+          ABI: ${{ matrix.abi }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERSION_CODE: ${{ needs.verify.outputs.version_code }}
+          # Public SHA-256 fingerprint from the release keystore certificate.
+          EXPECTED_CERT_SHA256: '095aae6d758a3568a8be25b2df21d5e7e9861109b892d96a30a1cbe2b149db10'
+        run: |
+          mapfile -t apks < <(ls app/build/outputs/apk/release/*.apk 2>/dev/null || true)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one APK for ${ABI}, found: ${apks[*]:-none}"
+            ls -l app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+
+          # Belt and braces: the APK must carry this ABI's libraries and no other.
+          packaged=$(unzip -Z1 "${apks[0]}" 'lib/*' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          echo "${apks[0]} packages ABIs: ${packaged}"
+          if [ "$(echo ${packaged})" != "${ABI}" ]; then
+            echo "::error::${ABI} build packaged '${packaged}' instead of just ${ABI}"
+            exit 1
+          fi
+
+          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          if [[ "$package_info" != "package: name='org.androshogi' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
+            echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
+            exit 1
+          fi
+          echo "Verified ${ABI} APK versionCode=${VERSION_CODE}, versionName=${TAG}"
+
+          # Verify the APK signature and pin it to the release certificate.
+          # KEY_SHA256 checks the JKS file, not the certificate in the APK.
+          if ! signing_info=$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "${apks[0]}"); then
+            echo "::error::Signature verification failed for ${ABI} APK"
+            exit 1
+          fi
+          cert_sha256=$(printf '%s\n' "$signing_info" |
+            sed -n 's/^Signer #[0-9][0-9]* certificate SHA-256 digest: //p' | tr 'A-F' 'a-f')
+          if [ "$cert_sha256" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::${ABI} APK certificate SHA-256 does not match the release key"
+            exit 1
+          fi
+          echo "Verified ${ABI} APK signature and release certificate SHA-256: ${cert_sha256}"
+
+          mkdir -p dist
+          mv "${apks[0]}" "dist/androshogi-${TAG}-${ABI}.apk"
+          ls -lh dist
+
+      # Manual prereleases are also used for on-device engine diagnostics.
+      # Keep tagged releases limited to the normal release APKs.
+      - name: Build the debug APK for a manual run
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERSION_CODE: ${{ needs.verify.outputs.version_code }}
+        run: |
+          ./gradlew --no-daemon \
+            -PtargetAbi="${{ matrix.abi }}" \
+            -PappVersionName="${TAG}" \
+            -PappVersionCode="${VERSION_CODE}" \
+            assembleDebug
+
+      - name: Check and name the debug APK
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ABI: ${{ matrix.abi }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          VERSION_CODE: ${{ needs.verify.outputs.version_code }}
+        run: |
+          mapfile -t apks < <(ls app/build/outputs/apk/debug/*.apk 2>/dev/null || true)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one debug APK for ${ABI}, found: ${apks[*]:-none}"
+            ls -l app/build/outputs/apk/debug/ || true
+            exit 1
+          fi
+
+          packaged=$(unzip -Z1 "${apks[0]}" 'lib/*' | cut -d/ -f2 | sort -u | tr '\n' ' ')
+          echo "${apks[0]} packages ABIs: ${packaged}"
+          if [ "$(echo ${packaged})" != "${ABI}" ]; then
+            echo "::error::${ABI} debug build packaged '${packaged}' instead of just ${ABI}"
+            exit 1
+          fi
+
+          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          if [[ "$package_info" != "package: name='org.androshogi.debug' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
+            echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
+            exit 1
+          fi
+          echo "Verified ${ABI} APK versionCode=${VERSION_CODE}, versionName=${TAG}"
+
+          mv "${apks[0]}" "dist/androshogi-${TAG}-${ABI}-debug.apk"
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          # v4 does not merge same-named artifacts, so name per ABI.
+          name: apk-${{ matrix.abi }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 7
+          # APKs are already zip-compressed.
+          compression-level: 0
+
+  publish:
+    name: Publish the release
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          merge-multiple: true
+          path: dist
+
+      - name: Check that every ABI arrived
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          ls -lh dist
+          for abi in $ABIS; do
+            f="dist/androshogi-${TAG}-${abi}.apk"
+            if [ ! -f "$f" ]; then
+              echo "::error::${f} is missing from the build artifacts"
+              exit 1
+            fi
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              f="dist/androshogi-${TAG}-${abi}-debug.apk"
+              if [ ! -f "$f" ]; then
+                echo "::error::${f} is missing from the build artifacts"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Write the release notes
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          cat > release-notes.md <<'NOTES'
+          ## ダウンロード
+
+          | ファイル | 対象 |
+          |---|---|
+          | `androshogi-TAG-arm64-v8a.apk` | 実機（現行の Android 端末はほぼこちら） |
+          | `androshogi-TAG-x86_64.apk` | エミュレータ、x86_64 の端末 |
+
+          ABI ごとに分割しているので、必要な方だけダウンロードしてください。
+
+          ## 評価関数の準備
+
+          APK にはやねうら王のエンジンを同梱していますが、評価関数は同梱していません。
+          棋譜の閲覧や盤面操作はそのまま使えます。検討・棋譜解析には、利用者が
+          標準 NNUE（HalfKP）対応の評価関数 `nn.bin` を別途用意する必要があります。
+          評価関数の入手先と利用条件は、配布元で確認してください。
+
+          1. `nn.bin` を端末へ保存する。
+          2. アプリの「設定 → エンジン → 評価関数ファイル（nn.bin）」で選択し、
+             取り込みが完了するまで待つ。
+          3. 設定画面から戻り、検討または棋譜解析を開始する。
+
+          `FV_SCALE` の既定値は 16 です。水匠5の評価関数では 24、
+          Háo の評価関数では 20 に設定してください。
+          対応しない評価関数ではエンジンを起動できない場合があります。
+
+          ## 動作環境
+
+          Android 10 (API 29) 以上。
+
+          ## インストール時の注意
+
+          このビルドは Play ストアを経由しないため、端末の「提供元不明のアプリ」
+          （不明なアプリのインストール）を許可する必要があります。
+
+          v0.1.0 のアプリ ID は `com.example.androshogi`、この APK は
+          `org.androshogi` です。別アプリとしてインストールされ、
+          アプリ内に保存した棋譜・解析結果・設定は自動移行されません。
+          旧版を削除する前に、必要な棋譜を旧版からコピーまたは共有してください。
+          以前の debug APK が `org.androshogi` として入っている場合は
+          署名が異なるため上書きできません。必要なデータを退避してから
+          旧 debug APK をアンインストールしてください。
+
+          **署名について**: 通常の APK は正式なリリース鍵で署名しています。
+          手動ビルドで同梱する debug APK はデバッグ用の鍵で署名します。
+          コードの難読化・圧縮は行っていません。
+
+          ## ライセンス
+
+          本アプリは GPLv3 です。局面管理に cshogi (Apery 由来)、思考エンジンに
+          やねうら王を同梱しており、いずれも GPLv3 です。評価関数は含みません。
+          ライセンス、第三者表記、対応するソースは、このタグの
+          [LICENSE](https://github.com/tatsy/androshogi/blob/TAG/LICENSE)、
+          [THIRD_PARTY_NOTICES.md](https://github.com/tatsy/androshogi/blob/TAG/THIRD_PARTY_NOTICES.md)、
+          [ソースコード](https://github.com/tatsy/androshogi/tree/TAG)を参照してください。
+          エンジンの配布元とビルド情報は
+          [README](https://github.com/tatsy/androshogi/blob/TAG/README.md)に記載しています。
+          NOTES
+
+          # 手動ビルドはバージョンではなくコミットを配るものなので、その旨を頭に置く。
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            cat > preface.md <<PREFACE
+          これは \`${GITHUB_SHA}\` を手動ビルドしたものです。バージョンを区切った
+          リリースではなく、端末で試すためのビルドとして公開しています。
+          設定画面のバージョンには \`${TAG}\` と表示されます。
+
+          PREFACE
+            cat release-notes.md >> preface.md
+            mv preface.md release-notes.md
+
+            cat >> release-notes.md <<'DEBUG_NOTES'
+
+          ## debug APK（手動ビルドのみ）
+
+          | ファイル | 対象 |
+          |---|---|
+          | `androshogi-TAG-arm64-v8a-debug.apk` | 実機での Logcat・`run-as` を使う調査 |
+          | `androshogi-TAG-x86_64-debug.apk` | x86_64 エミュレータでの調査 |
+
+          debug APK は `org.androshogi.debug`、通常の APK は `org.androshogi` です。
+          別アプリとして同時にインストールできますが、棋譜・評価関数・設定は共有しません。
+          旧ビルドの debug APK は通常版と同じ ID だったため、そちらから
+          新しい debug APK への上書き更新はできません。
+          DEBUG_NOTES
+          fi
+
+          sed -i "s|TAG|${TAG}|g" release-notes.md
+          cat release-notes.md
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No checkout in this job, so tell gh which repository to target.
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+        run: |
+          # 同じコミットを手動で回し直したときは、前のビルドを置き換える。
+          # タグを打ったリリースには触れない。
+          if [ "$GITHUB_EVENT_NAME" != "push" ] && gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Replacing the earlier build published as ${TAG}."
+            gh release delete "$TAG" --yes --cleanup-tag
+          fi
+
+          prerelease=""
+          if [ "$PRERELEASE" = "true" ]; then
+            prerelease="--prerelease"
+          fi
+
+          # 手動実行のタグはまだ存在しないので、実行したコミットに作らせる。
+          # タグが既にある場合 (v*) target は使われない。
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes-file release-notes.md \
+            --generate-notes \
+            $prerelease \
+            dist/*.apk

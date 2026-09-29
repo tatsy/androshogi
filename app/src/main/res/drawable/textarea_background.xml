@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reading area. Theme attributes keep it a light card in light mode and a dark card in dark mode. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="?attr/colorSurfaceContainer" />
+    <stroke
+        android:width="2dp"
+        android:color="?attr/colorOutline" />
+    <corners android:radius="8dp" />
+</shape>

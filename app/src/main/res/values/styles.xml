@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Buttons take their colours from the theme (colorPrimary / colorOnPrimary),
+         so they read correctly in both light and dark mode. MaterialButton ignores
+         android:background, which is why the old drawable never showed. -->
+    <style name="DefaultButton" parent="Widget.Material3.Button">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_margin">1dp</item>
+        <item name="android:paddingVertical">0dp</item>
+        <item name="android:paddingHorizontal">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@font/noto_sans_jp</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="IconButton" parent="DefaultButton">
+        <item name="android:textSize">8sp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="iconSize">14dp</item>
+        <item name="iconGravity">textTop</item>
+    </style>
+
+    <!-- Player name rows: a surface tint from the theme instead of a fixed grey,
+         with the matching text colour so dark mode stays legible. -->
+    <style name="PlayerInfoStyle">
+        <item name="android:textSize">11sp</item>
+        <item name="android:textAlignment">viewStart</item>
+        <item name="android:fontFamily">@font/noto_sans_jp</item>
+        <item name="android:paddingVertical">0dp</item>
+        <item name="android:paddingHorizontal">8dp</item>
+        <item name="android:background">?attr/colorSurfaceVariant</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <!-- Toggle between the reading and the move list: compact outlined buttons. -->
+    <style name="InfoTabButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:minWidth">72dp</item>
+        <item name="android:paddingVertical">2dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@font/noto_sans_jp</item>
+    </style>
+
+    <!-- One line of the move list: number, move, win rate, score. -->
+    <style name="MoveListCell">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@font/noto_sans_jp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <!-- Noto Sans JP carries tall ascent/descent; without this every row is a third taller. -->
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <!-- Win rate and evaluation at the end of a player row; same type as the name. -->
+    <style name="PlayerScoreStyle" parent="PlayerInfoStyle">
+        <item name="android:textAlignment">viewEnd</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+</resources>
