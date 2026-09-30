@@ -1,12 +1,15 @@
 # AndroShogi 開発ロードマップ
 
-この文書は、新しいリポジトリに含まれる実装状況と今後の作業計画を管理します。
+この文書は、公開済みの実装状況と次のリリースに向けた作業計画を管理します。
 旧リポジトリでの作業経緯は、その履歴と Release / Pull Request を参照してください。
 現在確認されている不具合は [KNOWN_ISSUES.md](KNOWN_ISSUES.md) に分離します。
 
 ## 現在地
 
-このリポジトリは orphan の単一コミットから始め、最初の正式リリースを **v0.1.0（versionCode 1）** とします。
+**2026-09-30 に v0.1.0（versionCode 1）を正式公開しました。**
+リポジトリは public で、[v0.1.0 Release](https://github.com/tatsy/androshogi/releases/tag/v0.1.0) から
+`arm64-v8a` / `x86_64` の署名済み APK を配布しています。
+次の開発は現在の `main` を起点に作成した `dev` ブランチで進めます。
 現在のコードには、将棋の棋譜をやねうら王 NNUE で検討するための基本機能があります。
 評価関数は APK に同梱せず、利用者が設定画面から `nn.bin` を選択します。
 
@@ -21,15 +24,56 @@
 - GitHub Releases からの ABI 別 APK 配布
 
 旧リポジトリで列挙した既知不具合 #1–#15 は修正済みです。
-この開始点から CI と実機で最終確認し、v0.1.0 を公開します。
+v0.1.0 の Release ワークフローと JVM unit test / API 34 instrumentation test は成功し、
+最終調整後の実機動作に問題がないことをユーザーが確認しました。
+個別の異常系・境界条件について確認記録が残っていないものは、次の開発で回帰確認します。
 
 ---
 
-## v0.1.0 公開準備
+## v0.2.0 開発準備
+
+v0.1.0 の基本機能と保存済みデータの互換性を維持しながら、小さな単位で改善します。
+機能追加候補は後段にまとめ、v0.2.0 に含める範囲と実装順は着手前に確定します。
+
+### 作業基盤
+
+- [x] 公開済み v0.1.0 と現在の `main` を確認する
+- [x] 現在の `main` から `dev` を作成する
+- [x] v0.1.0 の公開完了と v0.2.0 の準備方針を ROADMAP に反映する
+- [ ] v0.2.0 に含める機能と優先順位を決める
+
+開発は `dev` に小さなコミットを積み、CI と必要な実機確認を済ませてから PR で `main` に取り込みます。
+公開済みの `v0.1.0` タグは固定し、以後の修正は新しいコミットとタグで配布します。
+正式版の `versionCode` は既存の Release ワークフローがタグ順に採番します。
+現在の正式版タグ構成では、次を `v0.2.0` とした場合は `versionCode 2` になります。
+RC は対応する正式版と同じ番号を使います。
+
+### 回帰確認と保守
+
+- [ ] エンジンを起動できない場合のメッセージと、操作可能な状態へ戻ることを実機で確認する
+  - 予期せぬプロセス終了時のメッセージは v0.1.0 準備中に確認済み。起動失敗とは別に記録する
+- [ ] 長時間・深い探索の結果がある局面を短時間で再解析し、正常終了した最新結果で上書きされることを確認する
+  - 中断時に既存結果を上書きしないことは確認済み。正常終了時の比較条件を明示して確認する
+- [ ] 保存／復元の回帰確認で、起動直後の操作、棋譜切替、解析中断後の再起動を確認する
+  - save の順序保証、古い load result の棄却、startup load 前の誤保存防止を維持する
+- [ ] AGP / Gradle / AndroidX の更新を検討し、対応する組み合わせで CI と release build を確認する
+  - v0.1.0 の AGP 8.7.2 / Gradle 8.9 / JDK 17 を基準に、機能追加とは別のコミットで扱う
+  - `minSdk 29`、`compileSdk 34`、`targetSdk 34` の変更は、必要性と端末への影響を個別に判断する
+- [ ] 必要性を確認したうえで R8 / minify を検討する
+  - v0.1.0 は無効のまま公開。導入する場合は JNI 呼び出しと署名済み APK の動作を確認する
+
+これらは未修正の不具合を意味しません。既知不具合を確認した場合は
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md) に再現手順を記録します。
+
+---
+
+## v0.1.0 実装・リリース記録
+
+以下は v0.1.0 で実施した整理と、その設計上の判断です。
 
 ### 1. アプリの identity と配布基盤を確定する
 
-v0.1.0 の公開前に、アプリ ID、署名、採番を確認します。
+v0.1.0 の公開にあたり、アプリ ID、署名、採番を確定しました。
 
 - [x] 正式なアプリ identity を反映する
   - [x] 表示名は `AndroShogi` に確定
@@ -40,7 +84,8 @@ v0.1.0 の公開前に、アプリ ID、署名、採番を確認します。
 - [x] GitHub Actions の release build を正式鍵で署名する
 - [x] `versionCode` を正式版タグの順番で単調増加させる（`v0.1.0=1`、`v0.2.0=2`。RC は正式版と同じ番号）
 - [x] Release ワークフローで release APK の署名と version 情報を確認する
-- [ ] 必要性を確認したうえで R8 / minify を検討する
+
+R8 / minify は v0.1.0 では無効とし、必要性の検討は v0.2.0 の保守項目へ移しました。
 
 旧テスト版の `org.androshogi` が versionCode 2 で端末に入っている場合、
 versionCode 1 の新しい v0.1.0 は上書きできない。必要なデータを退避してから旧版をアンインストールする。
@@ -61,10 +106,12 @@ org.androshogi
 │   ├── LegalMoveList
 │   └── PseudoLegalMoveList
 ├── engine
+│   ├── AnalysisController
 │   ├── EngineSession
 │   ├── EngineInfo
 │   └── EngineUpdateListener
 ├── game
+│   ├── GameSession
 │   ├── GameRecord
 │   ├── GameAnalysis
 │   └── PositionAnalysis
@@ -110,7 +157,7 @@ shogi
 - [x] JNI wrapper (`Board`, `Move`, `LegalMoveList`, `PseudoLegalMoveList` など) をまとめて移動する
 - [x] unit / instrumentation test も同じパッケージ構造へ移動する
 - [x] CI で build / JVM unit test / Android instrumentation test が成功することを確認する
-- [ ] 実機で起動・棋譜読み込み・検討を確認する
+- [x] 実機で起動・棋譜読み込み・検討を確認する（最終調整後、ユーザー報告）
 
 JNI wrapper の package 変更では、`jni.cpp` の関数名にも完全修飾クラス名が埋め込まれる。
 現在は `Java_org_androshogi_shogi_Board_...` のような symbol を使用しているため、
@@ -120,18 +167,18 @@ JNI wrapper の package 変更では、`jni.cpp` の関数名にも完全修飾�
 
 ### 3. `MainActivity` の責務を減らす
 
-現在の `MainActivity` は View の初期化や画面遷移だけでなく、
+分割前の `MainActivity` は View の初期化や画面遷移だけでなく、
 エンジン制御、自動解析ループ、棋譜と解析結果の状態、保存 ID、非同期 save / load、
-KIF の共有入出力まで同時に管理している。
+KIF の共有入出力まで同時に管理していました。
 単にファイルが長いことよりも、複数の状態機械が同じ Activity の field と callback で結合していることが保守上の問題になる。
 
 v0.1.0 では全面的な MVVM 化や大規模な architecture 変更は行わず、
-**独立した状態管理・進行管理だけを壊しにくい単位で外へ出す**。
-UI の表示や Android lifecycle に直接関係する処理は `MainActivity` に残す。
+**独立した状態管理・進行管理を外へ出しました**。
+UI の表示や Android lifecycle に直接関係する処理は `MainActivity` に残しています。
 
 #### 3.1 自動解析ループを `AnalysisController` へ分離する
 
-最初に、現在 `MainActivity.AnalysisRun` が担当している自動解析の状態機械を独立させる。
+最初に、`MainActivity.AnalysisRun` が担当していた自動解析の状態機械を独立させました。
 これは `MainActivity` 分割の中で最も効果が大きく、単体テストもしやすい部分なので最優先とする。
 
 - [x] `AnalysisController` を追加する
@@ -160,7 +207,7 @@ v0.1.0 では新しい `EngineController` を先に導入しない。
 
 #### 3.2 ゲーム状態を `GameSession` にまとめる
 
-次に、現在ばらばらに保持している棋譜と解析結果、その保存上の identity を1つの状態として扱えるようにする。
+次に、ばらばらに保持していた棋譜と解析結果、その保存上の identity を1つの状態として扱えるようにしました。
 
 対象は概ね次の field。
 
@@ -195,7 +242,7 @@ long gameCreatedAt
   - 古い load result の無効化
   - startup load 完了前の誤保存防止
   - game list を開く前に現在状態の保存を完了する処理
-- [ ] 既存の `GameStore` は低レベルの保存 API として維持する
+- [x] 既存の `GameStore` は低レベルの保存 API として維持する
 - [x] クラス追加の効果が小さいため、v0.1.0 では `MainActivity` に残す
 
 現状の save / load は単一の `ExecutorService`、load 世代番号、起動時の pending 状態で調停している。
@@ -239,7 +286,8 @@ v0.1.0 公開時の `MainActivity` は、Android UI の入口として次を中�
 - `EngineSession` を包む専用 controller の新設
 - KIF 入出力 UI の大規模分割
 
-KIF の file I/O / charset 処理は、後段の Storage Access Framework 対応と一緒に整理する方が二度手間が少ない。
+KIF の file I/O / charset 処理は Storage Access Framework 対応とともに整備済みです。
+入出力 UI の追加分割は、その後の機能追加に応じて必要性を判断します。
 現在の `configChanges` による設定変更対応は暫定策として維持し、
 Controller / session 分離後に Activity lifecycle から engine state をさらに切り離す必要があるか判断する。
 
@@ -249,23 +297,22 @@ Controller / session 分離後に Activity lifecycle から engine state をさ�
 - [x] `GameSession` の必要 API を整理し、テストとともに導入
 - [x] save / load 調停の分離が有効かを再評価し、必要なら切り出す
 - [x] `MainActivity` の不要 field / helper / callback を整理する
-- [ ] CI と実機で、手動検討・自動解析・キャンセル・棋譜切替・保存／復元を回帰確認する
-  - 自動解析・キャンセルは分割後の実機動作で問題なし（2026-09-24）。棋譜切替・保存／復元など、残る操作は引き続き確認する
+- [x] CI と実機で、手動検討・自動解析・キャンセル・棋譜切替・保存／復元を回帰確認する
+  - 自動解析・キャンセルは分割後の実機動作で問題なし（2026-09-24）。最終調整後の動作確認もユーザーが報告（2026-09-30）
 
 各段階は小さなコミットに分け、機能変更と構造変更を可能な限り混ぜない。
 
 ### 4. エンジンと解析の公開前チェック
 
 - [x] 起動から `readyok` までの実機動作と所要時間を確認する（2026-09-23、初回 `readyok` まで 1,088 ms。実機での1回の測定値）
-- [ ] エンジン起動失敗時・予期せぬ終了時のメッセージを確認する
-  - [x] 予期せぬ終了時: debug APK の実機確認で、ポップアップと Logcat (`E/EngineSession`) の両方に「エンジンが予期せず終了しました」を確認（2026-09-23）
-  - [ ] 起動失敗時: 起動できない場合のメッセージを実機で確認する
+- [x] 予期せぬ終了時: debug APK の実機確認で、ポップアップと Logcat (`E/EngineSession`) の両方に「エンジンが予期せず終了しました」を確認（2026-09-23）
+- 起動失敗時の個別の実機確認は、v0.2.0 の回帰確認項目に引き継ぐ
 - [x] 長い棋譜解析でメモリが増え続けないことを確認する（2026-09-24、実機で166手を1手3秒で解析。提示された約5分間のエンジン TOTAL PSS は342,155–343,034 KBで持続増加なし。実機での1回の確認）
 - [x] Activity 終了後にやねうら王プロセスが残らないことを確認する（2026-09-24、解析後にアプリを終了し、`adb shell ps -A -o PID,PPID,ARGS` で `YaneuraOu_NNUE` を含むプロセスが残っていないことを実機確認）
 - [x] 評価関数非同梱版の `FV_SCALE` 既定値 `16` を実機ログで確認する（2026-09-26）。評価関数に合わせて設定できるようにする
-- [ ] 中断された探索結果は保存せず、正常終了した探索結果は時間・depth に関係なく最新結果で上書きする現在の方針を維持する
+- 中断された探索結果は保存せず、正常終了した探索結果は時間・depth に関係なく最新結果で上書きする方針を維持する
   - [x] 解析中断時に既存結果の上書きが起こらないことを実機で確認（2026-09-24）
-  - [ ] 正常終了時に、解析時間・depth にかかわらず最新結果へ上書きされることを確認する
+  - 正常終了時の探索時間・depth の比較条件を明示した確認は、v0.2.0 の回帰確認項目に引き継ぐ
 
 ### 5. v0.1.0 に含む機能
 
@@ -281,26 +328,30 @@ v0.1.0 に含める棋譜形式の追加はここまでとし、KI2 / CSA、棋�
 
 ### 6. v0.1.0 リリース判定
 
-- [ ] JVM unit test がすべて成功
-- [ ] API 34 emulator の instrumentation test が成功
-- [ ] arm64-v8a 実機で smoke test
-- [ ] 起動、盤面操作、KIF 読み込み、共有受け取り、手動検討、棋譜解析、保存／復元、ダークモードを確認
-- [ ] release APK の署名・versionCode・versionName を確認
+CI / Release は GitHub Actions の成功結果、実機の最終確認はユーザー報告に基づきます。
+
+- [x] JVM unit test がすべて成功
+- [x] API 34 emulator の instrumentation test が成功
+- [x] arm64-v8a 実機で smoke test
+- [x] 起動、盤面操作、KIF 読み込み、共有受け取り、手動検討、棋譜解析、保存／復元、ダークモードを確認
+- [x] release APK の署名・versionCode・versionName を確認
 - [x] 再配布条件を確認できない水匠5の評価関数を含む旧バイナリを、評価関数を含まないやねうら王通常版に差し替える
 - [x] 利用者が取得した評価関数を設定画面から選択・配置し、`EvalDir` を設定できるようにする（CI と実機での動作確認は別項目）
 - [x] 評価関数設定後、初回起動・検討・解析とエラー表示を CI と実機で確認する（2026-09-27、実機での確認をユーザーが報告）
 - [x] KIF / KIFU の拡張子と保存先の記憶を実機で確認する（2026-09-27、ユーザー報告）
 - [x] Release の説明に評価関数の準備・設定、旧テスト版からの移行、ソースへのリンクを追加する
 - [x] orphan の単一開始コミットに切り替え、旧タグを持ち込まず `v0.1.0=1` から採番する
-- [ ] 新リポジトリにリリース署名用の Actions Secrets を設定する
-- [ ] `v0.1.0-rc1` を作り実機確認
-- [ ] `v0.1.0` を公開
+- [x] 新リポジトリにリリース署名用の Actions Secrets を設定する
+- [x] `v0.1.0-rc1` を作り実機確認
+- [x] `v0.1.0` を公開（2026-09-30、両 ABI の APK を掲載）
+- [x] リポジトリを public に変更し、ソースと Release を一般公開する
 
 ---
 
 ## v0.2.0 以降の候補
 
-次の項目は重要だが、v0.1.0 の release blocker にはしない。
+以下は今後の機能追加・構造改善の候補です。すべてを v0.2.0 で実装することは前提にせず、
+利用上の効果と変更範囲を検討してリリースごとに選びます。
 
 - Activity 再生成に耐える ViewModel / retained state への移行
 - Foreground Service によるバックグラウンド棋譜解析
@@ -322,7 +373,7 @@ v0.1.0 に含める棋譜形式の追加はここまでとし、KI2 / CSA、棋�
 
 ## 開発上の原則
 
-- `dev` で小さな単位に変更し、CI が通る状態を保つ
+- `dev` で小さな単位に変更し、CI が通る状態を保つ。確認後は PR で `main` に取り込む
 - correctness / data loss / crash を機能追加より優先する
 - JNI resource は `finalize()` に頼らず明示的に解放する
 - disk I/O と process launch は UI thread で行わない
