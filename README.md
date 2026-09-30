@@ -2,7 +2,7 @@
 
 [![Android CI](https://github.com/tatsy/androshogi/actions/workflows/android.yml/badge.svg)](https://github.com/tatsy/androshogi/actions/workflows/android.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![GitHub Release](https://img.shields.io/github/v/release/tatsy/AndroShogi?color=blue)](https://github.com/tatsy/AndroShogi/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/tatsy/androshogi?color=blue)](https://github.com/tatsy/androshogi/releases)
 
 将棋の棋譜をAI（やねうら王 NNUE）で検討するためのAndroidアプリです。
 盤面を操作しながら候補手と読み筋を確認したり、貼り付けた棋譜を
