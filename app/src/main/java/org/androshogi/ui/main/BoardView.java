@@ -490,20 +490,13 @@ public class BoardView extends View implements EngineUpdateListener {
         bitmap.draw(canvas);
     }
 
-    /**
-     * Plays a move chosen by the user. Playing anything other than the move
-     * the record continues with discards the rest of the record; the listener
-     * is told from which ply, so that results kept per ply can follow.
-     */
+    /** Plays a user move, keeping other continuations and their analysis as branches. */
     public void commitMove(int move) {
-        int truncatedFrom = record.play(move);
+        boolean routeChanged = record.isAtEnd() || record.nextMove() != move;
+        record.playVariation(move);
         board.push(move);
         afterPositionChanged();
-        if (truncatedFrom >= 0) {
-            // Ply truncatedFrom is the position the move was played from and
-            // still exists; the positions after it are new.
-            notifyRecordTruncated(truncatedFrom + 1);
-        }
+        if (routeChanged) notifyRecordChanged();
         notifyPositionChanged();
     }
 
@@ -659,12 +652,8 @@ public class BoardView extends View implements EngineUpdateListener {
     public interface OnPositionChangedListener {
         void onPositionChanged();
 
-        /**
-         * Called before {@link #onPositionChanged()} when a user move departed
-         * from the record: the positions from {@code fromPly} on no longer
-         * exist in it.
-         */
-        default void onRecordTruncated(int fromPly) {}
+        /** Called before the position notification when the selected route changes. */
+        default void onRecordChanged() {}
     }
 
     public void setOnPositionChangedListener(OnPositionChangedListener listener) {
@@ -677,9 +666,9 @@ public class BoardView extends View implements EngineUpdateListener {
         }
     }
 
-    private void notifyRecordTruncated(int fromPly) {
+    private void notifyRecordChanged() {
         if (positionListener != null) {
-            positionListener.onRecordTruncated(fromPly);
+            positionListener.onRecordChanged();
         }
     }
 

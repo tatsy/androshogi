@@ -91,6 +91,29 @@ public class GameAnalysisTest {
         assertEquals(2, g.count());
     }
 
+    @Test public void userVariationAndMainReturnRetainAllAnalysis() {
+        GameRecord r = fourMoves();
+        GameAnalysis g = new GameAnalysis(r);
+        PositionAnalysis mainResult = sample("main b - 3");
+        PositionAnalysis endResult = sample("end b - 5");
+        g.put(2, mainResult);
+        g.put(4, endResult);
+        r.seek(1);
+        r.playVariation(99);
+        long branch = r.currentNodeId();
+        assertNull(g.get(2));
+        PositionAnalysis branchResult = sample("branch b - 3");
+        g.put(2, branchResult);
+        r.selectMainLine();
+        assertSame(mainResult, g.get(2));
+        assertSame(endResult, g.get(4));
+        assertSame(branchResult, g.getByNode(branch));
+        assertEquals(3, g.count());
+        r.seek(1);
+        r.playVariation(99);
+        assertSame(branchResult, g.get(2));
+    }
+
     @Test public void editingPrunesDeletedNodesWithoutAttachingResultsToTheReplacement() {
         GameRecord r = fourMoves();
         GameAnalysis g = new GameAnalysis(r);
@@ -100,7 +123,7 @@ public class GameAnalysisTest {
         long deleted = r.nodeIdAtPly(2);
         r.seek(1);
         int cut = r.play(99);
-        g.truncate(cut + 1); // BoardView retains the unchanged position before the new move.
+        g.truncate(cut + 1); // Explicit destructive editing retains the position before the new move.
         assertTrue(g.has(0));
         assertTrue(g.has(1));
         assertNull(g.get(2));

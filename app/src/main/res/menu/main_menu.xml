@@ -30,6 +30,12 @@
     <!-- 局面。盤の反転はボタンにあるのでここには置かない -->
     <group android:id="@+id/group_position">
         <item
+            android:id="@+id/select_branch"
+            android:title="@string/select_branch"/>
+        <item
+            android:id="@+id/return_main_line"
+            android:title="@string/return_main_line"/>
+        <item
             android:id="@+id/start_board"
             android:title="@string/start_board"/>
         <item

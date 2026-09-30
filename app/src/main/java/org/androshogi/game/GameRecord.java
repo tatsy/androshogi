@@ -19,8 +19,8 @@ import java.util.Map;
  * their behavior. The main continuation is independent of route selection.
  * This model has no JNI or Android dependency.
  *
- * <p>{@link #play(int)} deliberately retains the old destructive editing behavior.
- * Variation creation/selection is model-only until a later UI change.
+ * <p>{@link #play(int)} retains destructive editing for callers that need it;
+ * user moves use {@link #playVariation(int)} to retain existing continuations.
  */
 public final class GameRecord {
     public static final long ROOT_ID = 0;
@@ -153,7 +153,32 @@ public final class GameRecord {
         currentPly = Math.min(currentPly, keep);
     }
 
-    /** Adds a model-only variation, retaining the main and selected continuations. */
+    /** Plays a new or existing child, retaining all other continuations and metadata. */
+    public void playVariation(int move) {
+        selectNode(addVariation(currentNodeId(), move, 0, null));
+    }
+
+    /** Restores the main route, keeping the cursor's ply where that route is long enough. */
+    public void selectMainLine() {
+        GameNode node = nodes.get(ROOT_ID);
+        while (node.mainChildId() != null) {
+            selectedChildren.put(node.id(), node.mainChildId());
+            node = nodes.get(node.mainChildId());
+        }
+        rebuildRoute();
+        currentPly = Math.min(currentPly, length());
+    }
+
+    /** Includes continuations beyond the cursor when deciding whether the main route is selected. */
+    public boolean isMainLineSelected() {
+        for (int ply = 1; ply < selectedRoute.size(); ply++) {
+            if (!Long.valueOf(selectedRoute.get(ply).id()).equals(
+                    selectedRoute.get(ply - 1).mainChildId())) return false;
+        }
+        return true;
+    }
+
+    /** Adds a variation, retaining the main and selected continuations. */
     public long addVariation(long parentId, int move, int seconds, String comment) {
         GameNode parent = requireNode(parentId);
         for (long childId : parent.childIds()) {

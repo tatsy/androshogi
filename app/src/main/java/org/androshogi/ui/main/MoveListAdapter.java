@@ -75,7 +75,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
         notifyRow(ply);
     }
 
-    /** The record gained or lost moves; the row count may have changed. */
+    /** The selected route changed; rebuild its labels and row count. */
     public void recordChanged() {
         if (record != null) {
             currentPly = record.currentPly();
@@ -121,6 +121,9 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
         } else {
             holder.number.setText(String.format(Locale.JAPANESE, "%d", ply));
             holder.text.setText(describeMove(ply - 1));
+        }
+        if (record.node(record.nodeIdAtPly(ply)).childIds().size() > 1) {
+            holder.text.append(holder.itemView.getContext().getString(R.string.branch_point_marker));
         }
         PositionAnalysis a = analysis.get(ply);
         holder.winRate.setText(EvaluationLabel.winRate(a));

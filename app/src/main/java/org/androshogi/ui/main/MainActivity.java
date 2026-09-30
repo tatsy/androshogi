@@ -15,6 +15,7 @@ import org.androshogi.engine.EngineUpdateListener;
 import org.androshogi.kifu.KifParser;
 import org.androshogi.kifu.KifTextCodec;
 import org.androshogi.kifu.KifWriter;
+import org.androshogi.kifu.MoveNotation;
 
 import org.androshogi.settings.AppSettings;
 import org.androshogi.ui.settings.SettingsActivity;
@@ -23,6 +24,7 @@ import org.androshogi.storage.GameStore;
 import org.androshogi.storage.SavedGame;
 
 import org.androshogi.game.GameRecord;
+import org.androshogi.game.GameNode;
 import org.androshogi.game.GameSession;
 import org.androshogi.game.PositionAnalysis;
 
@@ -244,11 +246,9 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onRecordTruncated(int fromPly) {
+            public void onRecordChanged() {
                 // A user edit wins over any game file that is still being loaded.
                 invalidatePendingGameLoad();
-                // Those positions left the record, so their results are meaningless now.
-                game.truncateAnalysis(fromPly);
                 moveListAdapter.recordChanged();
                 graphView.invalidate();
             }
@@ -524,6 +524,11 @@ public class MainActivity extends AppCompatActivity {
     private void showPopupMenu(View view) {
         PopupMenu popupMenu = new PopupMenu(this, view);
         popupMenu.inflate(R.menu.main_menu);
+        GameRecord record = game.record();
+        popupMenu.getMenu().findItem(R.id.select_branch).setEnabled(analysisRun == null
+                && record.node(record.currentNodeId()).childIds().size() > 1);
+        popupMenu.getMenu().findItem(R.id.return_main_line).setEnabled(analysisRun == null
+                && !record.isMainLineSelected());
         MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
@@ -538,6 +543,16 @@ public class MainActivity extends AppCompatActivity {
             } else if (itemId == R.id.end_board) {
                 if (requireIdleNavigation()) {
                     boardView.setEndBoard();
+                }
+                return true;
+            } else if (itemId == R.id.select_branch) {
+                showBranchDialog();
+                return true;
+            } else if (itemId == R.id.return_main_line) {
+                if (requireIdleNavigation()) {
+                    invalidatePendingGameLoad();
+                    game.record().selectMainLine();
+                    showRecord();
                 }
                 return true;
             } else if (itemId == R.id.auto_analyze) {
@@ -586,6 +601,45 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
         popupMenu.show();
+    }
+
+    /** Chooses the next move from the currently displayed branch point. */
+    private void showBranchDialog() {
+        if (!requireIdleNavigation()) return;
+        GameRecord record = game.record();
+        GameNode parent = record.node(record.currentNodeId());
+        List<Long> children = parent.childIds();
+        if (children.size() < 2) return;
+        String[] labels = new String[children.size()];
+        int selected = -1;
+        Board board = new Board(boardView.getSFEN());
+        try {
+            for (int i = 0; i < children.size(); i++) {
+                long id = children.get(i);
+                labels[i] = (board.turn() == Shogi.BLACK ? "☗" : "☖")
+                        + MoveNotation.describe(board, record.node(id).move(), record.lastMove());
+                if (Long.valueOf(id).equals(parent.mainChildId())) {
+                    labels[i] += getString(R.string.branch_original_marker);
+                }
+                if (Long.valueOf(id).equals(record.selectedChildId(parent.id()))) selected = i;
+            }
+        } finally {
+            board.cleanup();
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.select_branch)
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    if (game.record() == record && record.currentNodeId() == parent.id()
+                            && requireIdleNavigation()) {
+                        invalidatePendingGameLoad();
+                        record.selectNode(children.get(which));
+                        // Even a switch at the same ply needs a fresh native board.
+                        showRecord();
+                    }
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void flipBoard() {

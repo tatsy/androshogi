@@ -174,6 +174,60 @@ public class GameRecordTest {
         assertEquals(MOVES, copy.moves());
     }
 
+    @Test public void userMoveKeepsOriginalContinuationAndReusesExistingChildren() {
+        GameRecord r = fourMoves();
+        long main = r.nodeIdAtPly(2);
+        r.seek(1);
+        r.playVariation(99);
+        long branch = r.currentNodeId();
+        assertEquals(Arrays.asList(11, 99), r.moves());
+        assertEquals(6, r.nodes().size());
+        assertFalse(r.isMainLineSelected());
+        r.seek(1);
+        r.playVariation(22);
+        assertEquals(main, r.currentNodeId());
+        assertEquals(MOVES, r.moves());
+        assertEquals(7, r.timeSeconds(1));
+        assertEquals("c2", r.comment(1));
+        assertTrue(r.isMainLineSelected());
+        r.seek(1);
+        r.playVariation(99);
+        assertEquals(branch, r.currentNodeId());
+        assertEquals(6, r.nodes().size());
+    }
+
+    @Test public void returningToMainLineResetsNestedChoicesAndClampsOnlyTheCursor() {
+        GameRecord r = fourMoves();
+        r.seek(2);
+        r.playVariation(88);
+        long nestedBranch = r.currentNodeId();
+        r.playVariation(77);
+        r.playVariation(66);
+        r.selectMainLine();
+        assertEquals(MOVES, r.moves());
+        assertEquals(4, r.currentPly());
+        assertTrue(r.isMainLineSelected());
+        r.selectNode(nestedBranch);
+        assertEquals(Arrays.asList(11, 22, 88, 77, 66), r.moves());
+        r.seek(1);
+        assertFalse(r.isMainLineSelected()); // A variation is still selected beyond the cursor.
+        r.selectMainLine();
+        assertEquals(1, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        assertEquals(8, r.nodes().size());
+    }
+
+    @Test public void playingAtAnEmptyEndExtendsTheMainLine() {
+        GameRecord r = new GameRecord(Shogi.STARTING_SFEN, "B", "W");
+        r.selectMainLine();
+        assertTrue(r.isMainLineSelected());
+        r.playVariation(11);
+        r.playVariation(22);
+        assertEquals(Arrays.asList(11, 22), r.moves());
+        assertEquals(2, r.currentPly());
+        assertTrue(r.isMainLineSelected());
+    }
+
     @Test public void movesViewRemainsReadOnlyAndReflectsEdits() {
         GameRecord r = fourMoves();
         List<Integer> view = r.moves();

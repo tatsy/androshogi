@@ -6,6 +6,10 @@
     <string name="not_prom_label">不成</string>
     <string name="start_board">開始局面</string>
     <string name="end_board">終了局面</string>
+    <string name="select_branch">分岐を選択</string>
+    <string name="return_main_line">本譜に戻る</string>
+    <string name="branch_original_marker">（元の手順）</string>
+    <string name="branch_point_marker">（分岐あり）</string>
     <string name="menu_text">Menu</string>
     <string name="matta_text">待った</string>
     <string name="hint_text">検討</string>
