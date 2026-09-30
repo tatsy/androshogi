@@ -704,13 +704,14 @@ public class MainActivity extends AppCompatActivity {
         // button from the completion callback rather than only on tap.
         final int ply = game.record().currentPly();
         final GameRecord searched = game.record();
+        final long nodeId = searched.nodeIdAtPly(ply);
         final EngineSession searchedWith = engine;
         boolean started = searchedWith.startSearch(boardView.getSFEN(), AppSettings.thinkTimeMs(this),
                 result -> {
                     if (engine != searchedWith) {
                         return; // The evaluation file was replaced during this search.
                     }
-                    storeResult(searched, ply, result);
+                    storeResult(searched, ply, nodeId, result);
                     setHintButtonRunning(false);
                 });
         if (!started) {
@@ -789,16 +790,16 @@ public class MainActivity extends AppCompatActivity {
      * record has been replaced or changed at that ply in the meantime.
      *
      * <p>A manual search can outlive a user move that branches the record:
-     * the ply still exists, but now holds another position, so the searched
-     * SFEN is compared with the record's position at {@code ply} before it
-     * is stored and shown in the move list.
+     * the ply may still exist with a different node. Check both the captured
+     * node ID and SFEN before storing or displaying the result.
      */
-    private void storeResult(GameRecord searched, int ply, EngineSession.SearchResult result) {
+    private void storeResult(GameRecord searched, int ply, long nodeId, EngineSession.SearchResult result) {
         // A user-requested stop is not a completed analysis. Keep any previous result intact.
-        if (!result.completedNormally()
+        if (result == null || !result.completedNormally()
                 || searched != game.record()
-                || ply > game.record().length()
-                || !game.storeResult(searched, ply, sfenAtPly(ply), result)) {
+                || ply < 0 || ply > game.record().length()
+                || game.record().nodeIdAtPly(ply) != nodeId
+                || !game.storeResult(searched, ply, nodeId, sfenAtPly(ply), result)) {
             return;
         }
         // The session replaces the previous completed result regardless of time or depth.
@@ -1186,8 +1187,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onResult(int ply, EngineSession.SearchResult result) {
-                storeResult(searchedRecord, ply, result);
+            public void onResult(int ply, long nodeId, EngineSession.SearchResult result) {
+                storeResult(searchedRecord, ply, nodeId, result);
             }
 
             @Override

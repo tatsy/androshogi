@@ -20,7 +20,7 @@ public final class AnalysisController {
 
     public interface Listener {
         void onProgress(int analyzed, int total);
-        void onResult(int ply, EngineSession.SearchResult result);
+        void onResult(int ply, long nodeId, EngineSession.SearchResult result);
         void onPositionAdvanced();
         void onFinished(Status status);
     }
@@ -33,6 +33,7 @@ public final class AnalysisController {
     private final int total;
     private int analyzed;
     private int searchPly;
+    private long searchNodeId;
     private String searchSfen;
     private boolean cancelled;
     private boolean closed;
@@ -83,6 +84,7 @@ public final class AnalysisController {
 
     private void searchNext() {
         searchPly = record.currentPly();
+        searchNodeId = record.currentNodeId();
         searchSfen = position.sfen();
         if (!searcher.start(searchSfen, timeMs, this::onSearchFinished)) {
             finish(cancelled ? Status.CANCELLED : Status.ERROR);
@@ -98,7 +100,7 @@ public final class AnalysisController {
             return;
         }
         if (!searcher.isAvailable() || result == null || !result.completedNormally()
-                || record.currentPly() != searchPly
+                || record.currentPly() != searchPly || record.currentNodeId() != searchNodeId
                 || !searchSfen.equals(result.sfen)
                 || !searchSfen.equals(position.sfen())) {
             finish(Status.ERROR);
@@ -106,7 +108,7 @@ public final class AnalysisController {
         }
 
         // Only a completed search for the same position can change stored analysis.
-        listener.onResult(searchPly, result);
+        listener.onResult(searchPly, searchNodeId, result);
         analyzed++;
         listener.onProgress(analyzed, total);
         if (record.isAtEnd()) {

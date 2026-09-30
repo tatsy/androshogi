@@ -119,4 +119,68 @@ public class GameRecordTest {
         assertEquals(0, r.length());
         assertEquals(0, r.currentPly());
     }
+
+    @Test public void nodeIdsFollowPositionsAndAreNeverReusedAfterAnEdit() {
+        GameRecord r = fourMoves();
+        long first = r.nodeIdAtPly(1);
+        long second = r.nodeIdAtPly(2);
+        long end = r.nodeIdAtPly(4);
+        r.seek(1);
+        r.play(22);
+        assertEquals(second, r.currentNodeId());
+        r.seek(1);
+        r.play(99);
+        assertEquals(first, r.nodeIdAtPly(1));
+        assertTrue(r.currentNodeId() > end);
+        assertNull(r.node(second));
+        assertEquals(Long.valueOf(first), r.node(r.currentNodeId()).parentId());
+    }
+
+    @Test public void selectionKeepsMainLineAndVariationMetadata() {
+        GameRecord r = fourMoves();
+        long parent = r.nodeIdAtPly(1);
+        long main = r.nodeIdAtPly(2);
+        long variation = r.addVariation(parent, 99, 17, "variation");
+        long leaf = r.addVariation(variation, 88, 9, "continuation");
+        assertEquals(MOVES, r.moves());
+        assertEquals(Long.valueOf(main), r.node(parent).mainChildId());
+        assertEquals(variation, r.addVariation(parent, 99, 0, null));
+        r.selectNode(variation);
+        assertEquals(Arrays.asList(11, 99, 88), r.moves());
+        assertEquals(2, r.currentPly());
+        assertEquals(leaf, r.nodeIdAtPly(3));
+        assertEquals(17, r.timeSeconds(1));
+        assertEquals("variation", r.comment(1));
+        assertEquals(Long.valueOf(main), r.node(parent).mainChildId());
+        r.selectNode(main);
+        assertEquals(MOVES, r.moves());
+        assertEquals(7, r.timeSeconds(1));
+        assertEquals("c2", r.comment(1));
+    }
+
+    @Test public void snapshotDetachesAllBranchesAndTheirSelections() {
+        GameRecord r = fourMoves();
+        long main = r.nodeIdAtPly(2);
+        long branch = r.addVariation(r.nodeIdAtPly(1), 99, 2, "branch");
+        r.selectNode(branch);
+        GameRecord copy = new GameRecord(r);
+        assertEquals(r.nextNodeId(), copy.nextNodeId());
+        r.selectNode(main);
+        r.truncate(0);
+        assertEquals(Arrays.asList(11, 99), copy.moves());
+        assertEquals(branch, copy.currentNodeId());
+        assertEquals(6, copy.nodes().size());
+        copy.selectNode(main);
+        assertEquals(MOVES, copy.moves());
+    }
+
+    @Test public void movesViewRemainsReadOnlyAndReflectsEdits() {
+        GameRecord r = fourMoves();
+        List<Integer> view = r.moves();
+        r.truncate(2);
+        assertEquals(Arrays.asList(11, 22), view);
+        org.junit.Assert.assertThrows(UnsupportedOperationException.class, () -> view.add(55));
+        org.junit.Assert.assertThrows(IndexOutOfBoundsException.class, () -> r.move(-1));
+    }
+
 }

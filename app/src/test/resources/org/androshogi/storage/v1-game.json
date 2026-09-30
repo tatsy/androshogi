@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "id": "legacy-v1",
+  "createdAt": 100,
+  "updatedAt": 200,
+  "black": "先手",
+  "white": "後手",
+  "startSfen": "start b - 1",
+  "currentPly": 1,
+  "moves": [
+    11,
+    22,
+    33
+  ],
+  "times": [
+    5,
+    7,
+    0
+  ],
+  "comments": [
+    "初手",
+    null,
+    "終盤"
+  ],
+  "analysis": [
+    {
+      "ply": 0,
+      "sfen": "start b - 1",
+      "bestMove": "7g7f",
+      "infos": [
+        "info depth 12 multipv 1 score cp 84 pv 7g7f 3c3d"
+      ]
+    },
+    {
+      "ply": 2,
+      "sfen": "after-two b - 3",
+      "bestMove": null,
+      "infos": [
+        "info depth 5 multipv 1 score mate + pv 2h2b+"
+      ]
+    }
+  ]
+}

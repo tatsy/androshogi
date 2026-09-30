@@ -16,15 +16,15 @@ public class GameSessionResultTest {
         GameRecord record = new GameRecord("position", "Black", "White");
         GameSession game = new GameSession(record, () -> "id", () -> 100);
         EngineSession.SearchResult first = result("position", false);
-        assertTrue(game.storeResult(record, 0, "position", first));
+        assertTrue(game.storeResult(record, 0, record.nodeIdAtPly(0), "position", first));
         PositionAnalysis stored = game.analysis().get(0);
 
-        assertFalse(game.storeResult(record, 0, "position", result("position", true)));
-        assertFalse(game.storeResult(record, 0, "changed", result("position", false)));
+        assertFalse(game.storeResult(record, 0, record.nodeIdAtPly(0), "position", result("position", true)));
+        assertFalse(game.storeResult(record, 0, record.nodeIdAtPly(0), "changed", result("position", false)));
         assertSame(stored, game.analysis().get(0));
 
         game.startNew(new GameRecord("new", "A", "B"), true);
-        assertFalse(game.storeResult(record, 0, "position", first));
+        assertFalse(game.storeResult(record, 0, record.nodeIdAtPly(0), "position", first));
         assertFalse(game.analysis().has(0));
     }
 
@@ -32,4 +32,17 @@ public class GameSessionResultTest {
         return new EngineSession.SearchResult(sfen, null, 0, null,
                 Collections.emptyList(), stopped);
     }
+
+    @Test public void staleNodeCannotOverwriteAnIdenticalPositionAtTheSamePly() {
+        GameRecord record = new GameRecord("position", "B", "W");
+        record.play(42);
+        long searchedNode = record.currentNodeId();
+        GameSession game = new GameSession(record, () -> "id", () -> 100);
+        record.truncate(0);
+        record.play(42);
+        // Even an identical SFEN must not make a deleted search target valid again.
+        assertFalse(game.storeResult(record, 1, searchedNode, "same", result("same", false)));
+        assertTrue(game.storeResult(record, 1, record.currentNodeId(), "same", result("same", false)));
+    }
+
 }
