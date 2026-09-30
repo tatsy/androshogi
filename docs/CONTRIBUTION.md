@@ -49,13 +49,15 @@ Actions が値を計算して release / debug APK に渡し、APK 内の値も�
 ### 手元の動作確認用のビルド
 
 タグを打たずに端末で試したいときは、Actions から `Release` ワークフローを
-手動実行（workflow dispatch）してください。commit の先頭 6 桁を使って
-`build-abc123` というタグの pre-release が作られ、APK が同じように並びます。
-`main` しばりは掛からないので、作業中のブランチからでも作れます。同じ commit で
-実行し直すと、前のビルドの release は置き換えられます。
+手動実行（workflow dispatch）してください。実行日（日本時間）と commit の先頭 6 桁を使い、
+`build-20260930-abc123` というタグ名の Draft Release を作成して、通常版・debug 版の APK を添付します。
+公開はせず、書き込み権限を持つアカウントで GitHub にログインして Releases から取得します。
+`main` しばりは掛からないので、作業中のブランチからでも作れます。同じ日・同じ commit で
+実行し直すと、その Draft は置き換えられます。別の日の実行は別の Draft になります。
+Draft のタグは公開時に作成されるため、説明中のソースへのリンクには commit を使います。
 
 設定画面に表示されるバージョンは、リリースのタグと同じ文字列です
-（タグ付きなら `v0.2.0`、手動ビルドなら `build-abc123`）。
+（タグ付きなら `v0.2.0`、手動ビルドなら `build-20260930-abc123`）。
 
 ABI ごとの APK は「1 ABI だけを対象にしたビルド」を ABI ごとに行って作ります
 （AGP が `splits.abi` と `ndk.abiFilters` の併用を禁じているため）。CI では
