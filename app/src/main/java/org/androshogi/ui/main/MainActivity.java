@@ -1164,12 +1164,14 @@ public class MainActivity extends AppCompatActivity {
 
     /** Puts the names and the evaluation into the player rows, following the board's orientation. */
     public void refresh() {
+        String blackName = "☗" + game.record().blackName();
+        String whiteName = "☖" + game.record().whiteName();
         if (boardView.isUpsideDown()) {
-            whiteInfoView.setText(game.record().blackName());
-            blackInfoView.setText(game.record().whiteName());
+            whiteInfoView.setText(blackName);
+            blackInfoView.setText(whiteName);
         } else {
-            whiteInfoView.setText(game.record().whiteName());
-            blackInfoView.setText(game.record().blackName());
+            whiteInfoView.setText(whiteName);
+            blackInfoView.setText(blackName);
         }
         showEvaluation(shownEvaluation);
     }
