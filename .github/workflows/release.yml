@@ -148,7 +148,7 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-34" \
-            "build-tools;34.0.0" \
+            "build-tools;36.0.0" \
             "ndk;27.2.12479018" \
             "cmake;3.22.1"
 
@@ -215,7 +215,7 @@ jobs:
             exit 1
           fi
 
-          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          package_info=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
           if [[ "$package_info" != "package: name='org.androshogi' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
             echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
             exit 1
@@ -224,7 +224,7 @@ jobs:
 
           # Verify the APK signature and pin it to the release certificate.
           # KEY_SHA256 checks the JKS file, not the certificate in the APK.
-          if ! signing_info=$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "${apks[0]}"); then
+          if ! signing_info=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apks[0]}"); then
             echo "::error::Signature verification failed for ${ABI} APK"
             exit 1
           fi
@@ -275,7 +275,7 @@ jobs:
             exit 1
           fi
 
-          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          package_info=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
           if [[ "$package_info" != "package: name='org.androshogi.debug' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
             echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
             exit 1
@@ -285,7 +285,7 @@ jobs:
           mv "${apks[0]}" "dist/androshogi-${TAG}-${ABI}-debug.apk"
           ls -lh dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           # v4 does not merge same-named artifacts, so name per ABI.
           name: apk-${{ matrix.abi }}
