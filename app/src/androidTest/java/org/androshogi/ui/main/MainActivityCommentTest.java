@@ -6,6 +6,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static org.androshogi.ui.main.MainActivityMenuActions.menuItem;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -103,11 +104,11 @@ public class MainActivityCommentTest {
             });
 
             onView(withId(R.id.menu_button)).perform(click());
-            onView(withText(R.string.select_branch)).perform(click());
+            menuItem(R.id.select_branch).perform(click());
             onView(withText("☖８四歩")).perform(click());
             onView(withId(R.id.comment_view)).check(matches(withText("分岐のコメント")));
             onView(withId(R.id.menu_button)).perform(click());
-            onView(withText(R.string.return_main_line)).perform(click());
+            menuItem(R.id.return_main_line).perform(click());
             onView(withId(R.id.forward_button)).perform(click());
             onView(withId(R.id.comment_view)).check(matches(withText("本譜のコメント")));
         }

@@ -6,6 +6,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static org.androshogi.ui.main.MainActivityMenuActions.menuItem;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
@@ -47,7 +48,7 @@ public class MainActivityBranchTest {
             });
 
             onView(withId(R.id.menu_button)).perform(click());
-            onView(withText(R.string.return_main_line)).perform(click());
+            menuItem(R.id.return_main_line).perform(click());
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 assertEquals(3, view.getRecord().length());
@@ -65,7 +66,7 @@ public class MainActivityBranchTest {
             onView(withId(R.id.tab_record)).perform(click());
             onView(withText("☗７六歩（分岐あり）")).check(matches(isDisplayed()));
             onView(withId(R.id.menu_button)).perform(click());
-            onView(withText(R.string.select_branch)).perform(click());
+            menuItem(R.id.select_branch).perform(click());
             onView(withText("☖３四歩（元の手順）")).check(matches(isDisplayed()));
             onView(withText("☖８四歩")).perform(click());
             scenario.onActivity(activity -> {
@@ -78,7 +79,7 @@ public class MainActivityBranchTest {
 
             // Returning from the leaf must stop at the fork, with a valid native undo stack.
             onView(withId(R.id.menu_button)).perform(click());
-            onView(withText(R.string.return_main_line)).perform(click());
+            menuItem(R.id.return_main_line).perform(click());
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 GameRecord record = view.getRecord();
