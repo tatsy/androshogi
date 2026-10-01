@@ -418,6 +418,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyEngineSettings(EngineSession session) {
+        session.setOption("ConsiderationMode", "true");
         session.setOption("MultiPV", String.valueOf(AppSettings.multiPv(this)));
         session.setOption("Threads", String.valueOf(AppSettings.threads(this)));
         session.setOption("USI_Hash", String.valueOf(AppSettings.hashMb(this)));
