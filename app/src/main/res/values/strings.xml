@@ -53,6 +53,8 @@
     <string name="analysis_stored_marker">（解析済み）</string>
 
     <!-- 情報エリア -->
+    <string name="tab_comment">コメント</string>
+    <string name="comment_empty">コメントはありません</string>
     <string name="tab_reading">読み筋</string>
     <string name="tab_record">棋譜</string>
     <string name="tab_graph">グラフ</string>

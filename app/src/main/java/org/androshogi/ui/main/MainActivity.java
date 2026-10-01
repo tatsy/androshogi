@@ -96,6 +96,8 @@ public class MainActivity extends AppCompatActivity {
     @Nullable
     private PositionAnalysis shownEvaluation;
     private EngineView engineView;
+    private View commentPanel;
+    private TextView commentView;
     private RecyclerView moveListView;
     private MoveListAdapter moveListAdapter;
     private WinRateGraphView graphView;
@@ -255,6 +257,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         engineView = findViewById(R.id.engine_view);
+        commentPanel = findViewById(R.id.comment_panel);
+        commentView = findViewById(R.id.comment_view);
 
         // Move list; tapping a row jumps to that position.
         moveListView = findViewById(R.id.move_list_view);
@@ -727,11 +731,13 @@ public class MainActivity extends AppCompatActivity {
         refresh();
     }
 
-    /** Shows the reading, the move list or the graph below the board, whichever tab is checked. */
+    /** Shows the selected information panel below the board. */
     private void showInfoTab(int tabId) {
+        boolean showComment = tabId == R.id.tab_comment;
         boolean showMoves = tabId == R.id.tab_record;
         boolean showGraph = tabId == R.id.tab_graph;
-        engineView.setVisibility(!showMoves && !showGraph ? View.VISIBLE : View.GONE);
+        commentPanel.setVisibility(showComment ? View.VISIBLE : View.GONE);
+        engineView.setVisibility(tabId == R.id.tab_reading ? View.VISIBLE : View.GONE);
         moveListView.setVisibility(showMoves ? View.VISIBLE : View.GONE);
         graphView.setVisibility(showGraph ? View.VISIBLE : View.GONE);
         if (showMoves) {
@@ -834,9 +840,19 @@ public class MainActivity extends AppCompatActivity {
         showStoredAnalysis();
         moveListAdapter.setCurrentPly(game.record().currentPly());
         graphView.setCurrentPly(game.record().currentPly());
+        showCurrentComment();
         if (moveListView.getVisibility() == View.VISIBLE) {
             moveListView.scrollToPosition(game.record().currentPly());
         }
+    }
+
+    /** Comments belong to position nodes, including positions on a selected variation. */
+    private void showCurrentComment() {
+        GameRecord record = game.record();
+        String comment = record.node(record.currentNodeId()).comment();
+        commentView.setText(comment == null || comment.trim().isEmpty()
+                ? getString(R.string.comment_empty) : comment);
+        commentPanel.scrollTo(0, 0);
     }
 
     /**
