@@ -158,15 +158,24 @@ public final class GameRecord {
         selectNode(addVariation(currentNodeId(), move, 0, null));
     }
 
-    /** Restores the main route, keeping the cursor's ply where that route is long enough. */
+    /** Restores the main route and returns to the last position shared with it. */
     public void selectMainLine() {
+        int targetPly = currentPly;
+        for (int ply = 1; ply < selectedRoute.size(); ply++) {
+            if (!Long.valueOf(selectedRoute.get(ply).id()).equals(
+                    selectedRoute.get(ply - 1).mainChildId())) {
+                // Do not advance a cursor that is already before the branch point.
+                targetPly = Math.min(targetPly, ply - 1);
+                break;
+            }
+        }
         GameNode node = nodes.get(ROOT_ID);
         while (node.mainChildId() != null) {
             selectedChildren.put(node.id(), node.mainChildId());
             node = nodes.get(node.mainChildId());
         }
         rebuildRoute();
-        currentPly = Math.min(currentPly, length());
+        currentPly = targetPly;
     }
 
     /** Includes continuations beyond the cursor when deciding whether the main route is selected. */

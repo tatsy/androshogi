@@ -43,6 +43,7 @@ public class BoardView extends View implements EngineUpdateListener {
     static private final int N_HAND_PIECES = 7;
     /** Stroke width of the arrow showing the next move of the game record. */
     static private final float NEXT_MOVE_ARROW_WIDTH = 22.0f;
+    static private final float VARIATION_MOVE_ARROW_WIDTH = 16.0f;
     /** Distance, in pixels on screen, by which a piece's shadow falls to the lower right. */
     static private final int SHADOW_OFFSET = 5;
     private Board board;
@@ -382,7 +383,17 @@ public class BoardView extends View implements EngineUpdateListener {
             }
         }
 
-        // 棋譜の次の一手。読み筋より後に描くので、最善手と一致していても見える
+        // 分岐の継続手。選択中の矢印は最後に描き、重なっても見えるようにする。
+        long parentId = record.currentNodeId();
+        Long selectedId = record.selectedChildId(parentId);
+        int variationColor = getResources().getColor(R.color.arrow_variation_move, getContext().getTheme());
+        for (long childId : record.node(parentId).childIds()) {
+            if (!Long.valueOf(childId).equals(selectedId)) {
+                drawMoveArrow(canvas, new Move(record.node(childId).move()),
+                        variationColor, VARIATION_MOVE_ARROW_WIDTH);
+            }
+        }
+        // 棋譜の次の一手。読み筋より後に描くので、最善手と一致していても見える。
         int nextMove = nextRecordMove();
         if (nextMove != Shogi.MOVE_NONE) {
             drawMoveArrow(canvas, new Move(nextMove),

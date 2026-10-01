@@ -11,6 +11,8 @@
     <color name="circle_n_hand_pieces">#ff333333</color>
     <!-- 棋譜の次の一手を示す矢印。読み筋の赤い矢印と区別できる青にする -->
     <color name="arrow_next_move">#b31565c0</color>
+    <!-- 分岐点の未選択の継続手。選択中の青・読み筋の赤と区別する -->
+    <color name="arrow_variation_move">#99007850</color>
 
     <!-- 面の上に線や文字として置くアクセント。テーマの colorPrimary は塗りつぶした
          ボタンの背景として使う想定の濃さで、ダークでは前景にするとコントラストが足りない。

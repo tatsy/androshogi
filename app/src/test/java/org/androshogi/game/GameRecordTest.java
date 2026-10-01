@@ -196,7 +196,7 @@ public class GameRecordTest {
         assertEquals(6, r.nodes().size());
     }
 
-    @Test public void returningToMainLineResetsNestedChoicesAndClampsOnlyTheCursor() {
+    @Test public void returningToMainLineStopsAtTheBranchPointAndKeepsContinuations() {
         GameRecord r = fourMoves();
         r.seek(2);
         r.playVariation(88);
@@ -205,7 +205,7 @@ public class GameRecordTest {
         r.playVariation(66);
         r.selectMainLine();
         assertEquals(MOVES, r.moves());
-        assertEquals(4, r.currentPly());
+        assertEquals(2, r.currentPly());
         assertTrue(r.isMainLineSelected());
         r.selectNode(nestedBranch);
         assertEquals(Arrays.asList(11, 22, 88, 77, 66), r.moves());
@@ -215,6 +215,33 @@ public class GameRecordTest {
         assertEquals(1, r.currentPly());
         assertEquals(MOVES, r.moves());
         assertEquals(8, r.nodes().size());
+    }
+
+    @Test public void returningFromANestedVariationUsesTheForkOnTheMainLine() {
+        GameRecord r = fourMoves();
+        r.seek(1);
+        r.playVariation(99);
+        r.playVariation(88);
+        r.seek(2);
+        r.playVariation(77);
+        r.selectMainLine();
+        assertEquals(1, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        assertTrue(r.isMainLineSelected());
+        assertEquals(8, r.nodes().size());
+    }
+
+    @Test public void returningFromARootVariationShowsTheStartingPosition() {
+        GameRecord r = fourMoves();
+        r.seekStart();
+        r.playVariation(99);
+        r.playVariation(88);
+        r.selectMainLine();
+        assertEquals(0, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        r.seek(3);
+        r.selectMainLine();
+        assertEquals(3, r.currentPly());
     }
 
     @Test public void playingAtAnEmptyEndExtendsTheMainLine() {

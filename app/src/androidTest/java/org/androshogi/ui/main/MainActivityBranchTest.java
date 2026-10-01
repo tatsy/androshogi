@@ -8,6 +8,11 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -20,12 +25,13 @@ import org.androshogi.shogi.Shogi;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Covers menu routing and the native board's undo stack after a same-ply branch switch. */
+/** Covers branch arrows, menu routing, and the native undo stack after returning to a fork. */
 @RunWith(AndroidJUnit4.class)
 public class MainActivityBranchTest {
     @Test
     public void createsSelectsAndReturnsFromAVariationWithoutLosingMainMoves() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            onView(withId(R.id.board_view)).check(matches(isDisplayed()));
             scenario.onActivity(activity -> {
                 activity.parseShogiData("手合割：平手\n先手：B\n後手：W\n"
                         + "手数----指手---------消費時間--\n"
@@ -33,9 +39,11 @@ public class MainActivityBranchTest {
                 BoardView view = activity.findViewById(R.id.board_view);
                 assertEquals(3, view.getRecord().length());
                 view.seekTo(1);
+                assertArrows(view, true, false);
                 play(view, "8c8d");
                 assertEquals(5, view.getRecord().nodes().size());
                 assertPosition(view, "7g7f", "8c8d");
+                assertArrows(view, false, false);
             });
 
             onView(withId(R.id.menu_button)).perform(click());
@@ -43,6 +51,12 @@ public class MainActivityBranchTest {
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 assertEquals(3, view.getRecord().length());
+                assertPosition(view, "7g7f");
+                assertArrows(view, true, true);
+                view.flipUpsideDown();
+                assertArrows(view, true, true);
+                view.flipUpsideDown();
+                view.forwardBoard();
                 assertPosition(view, "7g7f", "3c3d");
                 view.backwardBoard();
                 assertPosition(view, "7g7f");
@@ -62,20 +76,47 @@ public class MainActivityBranchTest {
                 assertEquals(3, view.getRecord().currentPly());
             });
 
-            // Same ply, different route: rebuilding must also restore a valid native undo stack.
+            // Returning from the leaf must stop at the fork, with a valid native undo stack.
             onView(withId(R.id.menu_button)).perform(click());
             onView(withText(R.string.return_main_line)).perform(click());
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 GameRecord record = view.getRecord();
-                assertEquals(3, record.currentPly());
+                assertEquals(1, record.currentPly());
                 assertEquals(6, record.nodes().size());
-                assertPosition(view, "7g7f", "3c3d", "2g2f");
+                assertPosition(view, "7g7f");
+                assertArrows(view, true, true);
                 view.backwardBoard();
+                assertPosition(view);
+                assertArrows(view, true, false);
+                view.forwardBoard();
+                assertPosition(view, "7g7f");
+                view.forwardBoard();
                 assertPosition(view, "7g7f", "3c3d");
                 view.forwardBoard();
                 assertPosition(view, "7g7f", "3c3d", "2g2f");
             });
+        }
+    }
+
+    /** Tests the actual rendered arrows, including disappearance after leaving a branch point. */
+    private static void assertArrows(BoardView view, boolean selectedExpected, boolean variationExpected) {
+        assertTrue(view.getWidth() > 0 && view.getHeight() > 0);
+        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        try {
+            view.draw(new Canvas(bitmap));
+            int[] pixels = new int[bitmap.getWidth() * bitmap.getHeight()];
+            bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+            int blue = 0, green = 0;
+            for (int pixel : pixels) {
+                int r = Color.red(pixel), g = Color.green(pixel), b = Color.blue(pixel);
+                if (b > r + 25 && b > g + 15) blue++;
+                if (g > r + 20 && g > b + 15) green++;
+            }
+            assertEquals("Selected continuation arrow", selectedExpected, blue > 20);
+            assertEquals("Other continuation arrows", variationExpected, green > 20);
+        } finally {
+            bitmap.recycle();
         }
     }
 
