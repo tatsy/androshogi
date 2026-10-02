@@ -9,6 +9,7 @@ import org.androshogi.ui.games.GameListActivity;
 import org.androshogi.engine.EngineInfo;
 import org.androshogi.engine.AnalysisController;
 import org.androshogi.engine.EngineSession;
+import org.androshogi.engine.EngineKind;
 import org.androshogi.engine.EvaluationFileStore;
 import org.androshogi.engine.EngineUpdateListener;
 
@@ -85,7 +86,6 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String AI_NAME = "YaneuraOu_NNUE_halfkp_256x2_32_32";
 
     private BoardView boardView;
     private TextView blackInfoView;
@@ -107,6 +107,8 @@ public class MainActivity extends AppCompatActivity {
     private EngineSession engine;
     /** Revision of the evaluation data loaded by this process. */
     private long engineEvaluationRevision;
+    /** Architecture loaded by the current process; settings can change while it runs. */
+    private EngineKind engineKind;
 
     /** Non-null while a game analysis is running. */
     @Nullable
@@ -319,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        refreshEngineForEvaluation();
+        refreshEngineConfiguration();
         // The settings screen may have changed anything; re-apply it all. Values
         // the engine already holds are dropped by EngineSession, so this is cheap.
         applySettings();
@@ -332,9 +334,10 @@ public class MainActivity extends AppCompatActivity {
     /** Creates one engine process. A closed session is discarded rather than restarted. */
     private void startEngineSession() {
         engineEvaluationRevision = AppSettings.evaluationRevision(this);
+        engineKind = AppSettings.engineKind(this);
         String abi = Build.SUPPORTED_ABIS[0];
         final EngineSession session =
-                new EngineSession(AI_NAME + "_" + abi, getApplicationInfo().nativeLibraryDir);
+                new EngineSession(engineKind.executableName(abi), getApplicationInfo().nativeLibraryDir);
         engine = session;
 
         session.addEngineUpdateListener((board, infos) -> {
@@ -385,12 +388,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private File evaluationFile() {
-        return EvaluationFileStore.file(this);
+        return EvaluationFileStore.file(this, engineKind);
     }
 
-    /** The imported file is replaced atomically; a running engine still has the old model. */
-    private void refreshEngineForEvaluation() {
-        if (engineEvaluationRevision == AppSettings.evaluationRevision(this)) {
+    /** Restart when either the architecture or the installed model changes. */
+    private void refreshEngineConfiguration() {
+        if (engineKind == AppSettings.engineKind(this)
+                && engineEvaluationRevision == AppSettings.evaluationRevision(this)) {
             return;
         }
         if (analysisRun != null) {
@@ -782,7 +786,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Returns true if a new search may be started, showing why if it may not. */
     private boolean requireReadyEngine() {
-        refreshEngineForEvaluation();
+        refreshEngineConfiguration();
         if (!evaluationFile().isFile()) {
             showMissingEvaluationDialog();
             return false;

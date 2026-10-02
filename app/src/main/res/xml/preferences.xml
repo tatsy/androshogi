@@ -5,6 +5,13 @@
     android:key="preference_screen">
 
     <PreferenceCategory app:title="@string/pref_category_engine">
+        <ListPreference
+            app:key="engine_kind"
+            app:title="@string/pref_engine_kind_title"
+            app:entries="@array/engine_kind_entries"
+            app:entryValues="@array/engine_kind_values"
+            app:defaultValue="halfkp_256x2_32_32"
+            app:useSimpleSummaryProvider="true"/>
         <Preference
             app:key="engine_eval_file"
             app:title="@string/pref_eval_file_title"

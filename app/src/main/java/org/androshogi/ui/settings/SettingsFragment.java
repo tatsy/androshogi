@@ -1,6 +1,7 @@
 package org.androshogi.ui.settings;
 
 import org.androshogi.engine.EvaluationFileStore;
+import org.androshogi.engine.EngineKind;
 import org.androshogi.settings.AppSettings;
 
 import org.androshogi.R;
@@ -34,13 +35,16 @@ public class SettingsFragment extends PreferenceFragmentCompat {
     private final ExecutorService evaluationImport = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Preference evaluationPreference;
+    private ListPreference enginePreference;
+    private ListPreference fvScalePreference;
+    private EngineKind pendingEvaluationKind = EngineKind.DEFAULT;
     private Preference kifFolderPreference;
     private boolean importingEvaluation;
 
     private final ActivityResultLauncher<String[]> evaluationPicker = registerForActivityResult(
             new ActivityResultContracts.OpenDocument(), uri -> {
                 if (uri != null) {
-                    importEvaluation(uri);
+                    importEvaluation(uri, pendingEvaluationKind);
                 }
             });
 
@@ -61,10 +65,38 @@ public class SettingsFragment extends PreferenceFragmentCompat {
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.preferences, rootKey);
 
+        if (savedInstanceState != null) {
+            pendingEvaluationKind = EngineKind.fromId(savedInstanceState.getString("evaluation_picker_kind"));
+        }
+
+        // FV_SCALE belongs to the selected architecture, rather than one shared XML key.
+        fvScalePreference = findPreference(AppSettings.KEY_FV_SCALE);
+        if (fvScalePreference != null) {
+            fvScalePreference.setPersistent(false);
+            fvScalePreference.setOnPreferenceChangeListener((p, value) -> {
+                AppSettings.setFvScale(requireContext(), Integer.parseInt((String) value));
+                return true;
+            });
+            updateFvScale();
+        }
+
+        enginePreference = findPreference(AppSettings.KEY_ENGINE_KIND);
+        if (enginePreference != null) {
+            enginePreference.setValue(AppSettings.engineKind(requireContext()).id());
+            enginePreference.setOnPreferenceChangeListener((p, value) -> {
+                // Persist first so dependent controls immediately read the new engine's settings.
+                enginePreference.setValue((String) value);
+                updateFvScale();
+                updateEvaluationSummary();
+                return true;
+            });
+        }
+
         evaluationPreference = findPreference(AppSettings.KEY_EVAL_FILE);
         if (evaluationPreference != null) {
             updateEvaluationSummary();
             evaluationPreference.setOnPreferenceClickListener(p -> {
+                pendingEvaluationKind = AppSettings.engineKind(requireContext());
                 evaluationPicker.launch(new String[] {"*/*"});
                 return true;
             });
@@ -136,13 +168,22 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             return;
         }
         evaluationPreference.setEnabled(!importingEvaluation);
+        if (enginePreference != null) {
+            enginePreference.setEnabled(!importingEvaluation);
+        }
         evaluationPreference.setSummary(importingEvaluation
                 ? R.string.pref_eval_file_importing
                 : EvaluationFileStore.file(requireContext()).isFile()
                         ? R.string.pref_eval_file_ready : R.string.pref_eval_file_missing);
     }
 
-    private void importEvaluation(Uri uri) {
+    private void updateFvScale() {
+        if (fvScalePreference != null) {
+            fvScalePreference.setValue(String.valueOf(AppSettings.fvScale(requireContext())));
+        }
+    }
+
+    private void importEvaluation(Uri uri, EngineKind kind) {
         if (importingEvaluation) {
             return;
         }
@@ -152,7 +193,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         evaluationImport.execute(() -> {
             boolean succeeded = false;
             try {
-                EvaluationFileStore.importFile(appContext, uri);
+                EvaluationFileStore.importFile(appContext, uri, kind);
                 AppSettings.markEvaluationChanged(appContext);
                 succeeded = true;
             } catch (IOException | SecurityException e) {
@@ -178,6 +219,18 @@ public class SettingsFragment extends PreferenceFragmentCompat {
                 }
             });
         });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateEvaluationSummary();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString("evaluation_picker_kind", pendingEvaluationKind.id());
     }
 
     @Override

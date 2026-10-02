@@ -45,7 +45,7 @@
     <string name="kifu_parse_error_title">棋譜を読み込めませんでした</string>
     <string name="engine_unavailable">エンジンを利用できません</string>
     <string name="engine_eval_missing_title">評価関数がありません</string>
-    <string name="engine_eval_missing_message">nn.bin がないため、検討を開始できません。設定の「評価関数ファイル」から nn.bin を選択してください。</string>
+    <string name="engine_eval_missing_message">選択中のエンジン用の nn.bin がないため、検討を開始できません。設定で「エンジンの種類」を確認し、「評価関数ファイル」から対応する nn.bin を選択してください。</string>
     <string name="analysis_progress_title">棋譜解析中</string>
     <string name="analysis_progress_format">%1$d / %2$d 局面</string>
     <string name="analysis_cancelled">棋譜解析を中止しました</string>
@@ -79,9 +79,10 @@
 
     <!-- 設定 -->
     <string name="pref_category_engine">エンジン</string>
+    <string name="pref_engine_kind_title">エンジンの種類</string>
     <string name="pref_eval_file_title">評価関数ファイル（nn.bin）</string>
-    <string name="pref_eval_file_missing">未設定。タップして端末から選択</string>
-    <string name="pref_eval_file_ready">設定済み。タップして変更</string>
+    <string name="pref_eval_file_missing">選択中のエンジン用の評価関数が未設定。タップして端末から選択</string>
+    <string name="pref_eval_file_ready">選択中のエンジン用の評価関数は設定済み。タップして変更</string>
     <string name="pref_eval_file_importing">評価関数を取り込んでいます…</string>
     <string name="pref_eval_file_imported">評価関数を取り込みました</string>
     <string name="pref_eval_file_failed_title">評価関数を取り込めませんでした</string>
@@ -153,15 +154,27 @@
         <item>128</item>
         <item>256</item>
     </string-array>
+    <string-array name="engine_kind_entries">
+        <item>HalfKP 256×2-32-32（Háo・水匠5など）</item>
+        <item>HalfKP 512×2-8-64（振電3など）</item>
+        <item>HalfKP 768×2-16-64（AobaNNUEなど）</item>
+    </string-array>
+    <string-array name="engine_kind_values">
+        <item>halfkp_256x2_32_32</item>
+        <item>halfkp_512x2_8_64</item>
+        <item>halfkp_768x2_16_64</item>
+    </string-array>
     <string-array name="fv_scale_entries">
         <item>16（やねうら王の標準）</item>
         <item>20（Háo向け）</item>
         <item>24（水匠5向け）</item>
+        <item>40（512・768構造の初期値）</item>
     </string-array>
     <string-array name="fv_scale_values">
         <item>16</item>
         <item>20</item>
         <item>24</item>
+        <item>40</item>
     </string-array>
     <string-array name="theme_entries">
         <item>システムに従う</item>

@@ -2,6 +2,7 @@ package org.androshogi.engine;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import org.junit.Rule;
@@ -16,6 +17,33 @@ import java.nio.file.Files;
 
 public class EvaluationFileStoreTest {
     @Rule public TemporaryFolder folder = new TemporaryFolder();
+
+    @Test
+    public void architecturesKeepIndependentModelsAndPreserveLegacyLocation() throws IOException {
+        File filesDir = folder.newFolder("files");
+        File legacy = new File(new File(filesDir, "eval"), "nn.bin");
+        Files.createDirectories(legacy.getParentFile().toPath());
+        byte[] original = new byte[] {1, 2};
+        Files.write(legacy.toPath(), original);
+        assertEquals(legacy, EvaluationFileStore.file(filesDir, EngineKind.DEFAULT));
+
+        for (EngineKind kind : EngineKind.values()) {
+            if (kind != EngineKind.DEFAULT) {
+                File destination = EvaluationFileStore.file(filesDir, kind);
+                assertFalse(destination.exists());
+                byte[] model = new byte[] {(byte) kind.ordinal(), 9};
+                EvaluationFileStore.copy(new ByteArrayInputStream(model), destination);
+                assertArrayEquals(model, Files.readAllBytes(destination.toPath()));
+            }
+        }
+        for (EngineKind kind : EngineKind.values()) {
+            if (kind != EngineKind.DEFAULT) {
+                assertArrayEquals(new byte[] {(byte) kind.ordinal(), 9},
+                        Files.readAllBytes(EvaluationFileStore.file(filesDir, kind).toPath()));
+            }
+        }
+        assertArrayEquals(original, Files.readAllBytes(legacy.toPath()));
+    }
 
     @Test
     public void successfulImportReplacesEvaluationFile() throws IOException {
