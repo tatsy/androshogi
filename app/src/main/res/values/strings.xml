@@ -40,6 +40,7 @@
     <string name="engine_starting">エンジンを起動しています</string>
     <string name="engine_busy">エンジンが動作中です</string>
     <string name="analysis_started">棋譜解析を開始します</string>
+    <string name="analysis_multipv_title">同時に探索する候補の数（MultiPV）</string>
     <string name="analysis_finished">棋譜解析が終了しました</string>
     <string name="kifu_loaded">棋譜データを読み込みました</string>
     <string name="kifu_parse_error_title">棋譜を読み込めませんでした</string>

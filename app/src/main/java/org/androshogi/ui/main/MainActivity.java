@@ -771,6 +771,7 @@ public class MainActivity extends AppCompatActivity {
         final GameRecord searched = game.record();
         final long nodeId = searched.nodeIdAtPly(ply);
         final EngineSession searchedWith = engine;
+        searchedWith.setOption("MultiPV", String.valueOf(AppSettings.multiPv(this)));
         boolean started = searchedWith.startSearch(boardView.getSFEN(), AppSettings.thinkTimeMs(this),
                 result -> {
                     if (engine != searchedWith) {
@@ -1206,7 +1207,7 @@ public class MainActivity extends AppCompatActivity {
         if (!requireReadyEngine()) {
             return;
         }
-        showParameterDialog(this, (time, start) -> {
+        showParameterDialog(this, (time, multiPv, start) -> {
             // 開始局面から検討なら局面を最初に戻す
             if (start == ConsiderStart.BEGINNING) {
                 boardView.setStartBoard();
@@ -1214,17 +1215,20 @@ public class MainActivity extends AppCompatActivity {
 
             Toast.makeText(this, R.string.analysis_started, Toast.LENGTH_SHORT).show();
             Log.d(TAG, "自動検討時間: " + time + "ms");
-            startAutoAnalysis(time);
+            startAutoAnalysis(time, multiPv);
         });
     }
 
     /** Connects the view and engine to the UI-independent analysis state machine. */
-    private void startAutoAnalysis(int timePerMoveMs) {
+    private void startAutoAnalysis(int timePerMoveMs, int multiPv) {
         final GameRecord searchedRecord = game.record();
         final EngineSession session = engine;
         AnalysisController.Searcher searcher = new AnalysisController.Searcher() {
             @Override
             public boolean start(String sfen, int timeMs, EngineSession.SearchCallback callback) {
+                // Returning from Settings may have queued the manual value. Pin each
+                // position to this run's choice before EngineSession sends its options.
+                session.setOption("MultiPV", String.valueOf(multiPv));
                 return session.startSearch(sfen, timeMs, callback);
             }
 
@@ -1276,6 +1280,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFinished(AnalysisController.Status status) {
                 analysisRun = null;
+                if (engine == session) {
+                    session.setOption("MultiPV", String.valueOf(AppSettings.multiPv(MainActivity.this)));
+                }
                 analysisPanel.setVisibility(View.GONE);
                 boardView.setInputLocked(false);
                 // Preserve the finished positions even after cancellation or an engine error.
@@ -1299,6 +1306,7 @@ public class MainActivity extends AppCompatActivity {
         View dialogView = inflater.inflate(R.layout.dialog_engine_parameters, null);
 
         Spinner timeSpinner = dialogView.findViewById(R.id.consider_time_spinner);
+        Spinner multiPvSpinner = dialogView.findViewById(R.id.consider_multipv_spinner);
         RadioGroup startPositionGroup = dialogView.findViewById(R.id.radio_group_start_position);
 
         // ResourceのarrayからSpinnerのアイテム名をコピー
@@ -1316,6 +1324,15 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        String[] multiPvValues = context.getResources().getStringArray(R.array.multipv_values);
+        int lastMultiPv = AppSettings.analysisMultiPv(context);
+        for (int i = 0; i < multiPvValues.length; i++) {
+            if (Integer.parseInt(multiPvValues[i]) == lastMultiPv) {
+                multiPvSpinner.setSelection(i);
+                break;
+            }
+        }
+
         // ダイアログの表示
         MaterialAlertDialogBuilder builder =
                 new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Androshogi_AlertDialog);
@@ -1328,13 +1345,15 @@ public class MainActivity extends AppCompatActivity {
             // Map to corresponding value
             int timeValue = Integer.parseInt(valueArray[selectedPosition]);
             AppSettings.setAnalysisTimeMs(context, timeValue);
+            int multiPv = Integer.parseInt(multiPvValues[multiPvSpinner.getSelectedItemPosition()]);
+            AppSettings.setAnalysisMultiPv(context, multiPv);
 
             // Get the selected start position
             int selectedId = startPositionGroup.getCheckedRadioButtonId();
             ConsiderStart start = selectedId == R.id.radio_beginning ? ConsiderStart.BEGINNING : ConsiderStart.CURRENT;
 
             // Pass the parameters back using the callback
-            callback.onParameterSet(timeValue, start);
+            callback.onParameterSet(timeValue, multiPv, start);
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
@@ -1359,5 +1378,5 @@ enum ConsiderStart {
 }
 
 interface ParameterCallback {
-    void onParameterSet(int timeValue, ConsiderStart start);
+    void onParameterSet(int timeValue, int multiPv, ConsiderStart start);
 }

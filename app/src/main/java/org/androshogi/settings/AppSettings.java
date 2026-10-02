@@ -32,6 +32,7 @@ public final class AppSettings {
     public static final String KEY_THEME = "app_theme";
     /** Last value chosen in the analysis dialog; not shown on the settings screen. */
     public static final String KEY_ANALYSIS_TIME_MS = "analysis_time_ms";
+    public static final String KEY_ANALYSIS_MULTI_PV = "analysis_multipv";
     public static final String KEY_APP_VERSION = "app_version";
     /** Id of the game shown when the app was last stopped; restored on the next start. */
     public static final String KEY_LAST_GAME_ID = "last_game_id";
@@ -202,5 +203,16 @@ public final class AppSettings {
 
     public static void setAnalysisTimeMs(Context context, int timeMs) {
         prefs(context).edit().putInt(KEY_ANALYSIS_TIME_MS, timeMs).apply();
+    }
+
+    /** First use follows the manual setting; later runs remember the analysis choice. */
+    public static int analysisMultiPv(Context context) {
+        return Math.max(1, Math.min(5,
+                prefs(context).getInt(KEY_ANALYSIS_MULTI_PV, multiPv(context))));
+    }
+
+    public static void setAnalysisMultiPv(Context context, int multiPv) {
+        prefs(context).edit().putInt(KEY_ANALYSIS_MULTI_PV,
+                Math.max(1, Math.min(5, multiPv))).apply();
     }
 }
