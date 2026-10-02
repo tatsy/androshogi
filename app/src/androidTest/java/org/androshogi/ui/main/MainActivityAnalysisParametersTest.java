@@ -7,6 +7,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withSpinnerText;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.espresso.matcher.RootMatchers.isPlatformPopup;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -47,7 +48,7 @@ public class MainActivityAnalysisParametersTest {
                     (time, multiPv, start) -> selected.set(new int[] {time, multiPv})));
             onView(withId(R.id.consider_multipv_spinner)).check(matches(withSpinnerText("3")));
             onView(withId(R.id.consider_multipv_spinner)).perform(click());
-            onData(is("2")).perform(click());
+            onData(is("2")).inRoot(isPlatformPopup()).perform(click());
             onView(withText("OK")).perform(click());
             assertEquals(2, selected.get()[1]);
             assertEquals(1000, selected.get()[0]);
@@ -60,7 +61,7 @@ public class MainActivityAnalysisParametersTest {
                     (time, multiPv, start) -> selected.set(new int[] {time, multiPv})));
             onView(withId(R.id.consider_multipv_spinner)).check(matches(withSpinnerText("2")));
             onView(withId(R.id.consider_multipv_spinner)).perform(click());
-            onData(is("5")).perform(click());
+            onData(is("5")).inRoot(isPlatformPopup()).perform(click());
             onView(withText("Cancel")).perform(click());
             assertNull(selected.get());
             assertEquals(2, AppSettings.analysisMultiPv(context));
