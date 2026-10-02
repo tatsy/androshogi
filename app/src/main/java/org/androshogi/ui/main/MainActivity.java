@@ -85,7 +85,7 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String AI_NAME = "YaneuraOu_NNUE";
+    private static final String AI_NAME = "YaneuraOu_NNUE_halfkp_256x2_32_32";
 
     private BoardView boardView;
     private TextView blackInfoView;
