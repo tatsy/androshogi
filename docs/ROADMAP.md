@@ -8,10 +8,10 @@
 
 v0.1.0 は2026-09-30に公開済みです。
 **v0.2.0 の正式タグは2026-10-04に作成済みです。**
-`dev` はタグのコミット `8cb4f4e` まで fast-forward しています。
-GitHub 上の `main` は `b0779d2` のままで、タグのコミットが含まれていないため、
-[Release workflow](https://github.com/tatsy/androshogi/actions/runs/37209359647) は
-`Verify the tag is on main` で失敗しました。正式 APK の作成・Release の公開は未完了です。
+`main` はタグのコミット `8cb4f4e` を含み、`dev` も同コミットまで fast-forward しています。
+初回の [Release workflow](https://github.com/tatsy/androshogi/actions/runs/37209359647) は、
+実行時点で GitHub 上の `main` にタグのコミットが含まれておらず、`Verify the tag is on main` で失敗しました。
+`main` への反映後の再実行が必要で、正式 APK の作成・Release の公開は未完了です。
 
 ## v0.2.0 のタグに含まれる変更
 
@@ -57,10 +57,12 @@ KIF は選択中の一本の手順だけを扱います。分岐の高度な編�
   - 評価関数未設定・エンジン起動失敗後も操作可能な状態へ戻る
   - 正常終了した再解析では最新結果を保存し、中断した局面の既存結果を保持する
   - 起動直後の操作、棋譜切替、解析中断後の再起動で棋譜や分岐が失われない
-- [ ] GitHub 上の `main` を `v0.2.0` のコミットまで fast-forward し、最終コミットの CI を確認する
+- [x] GitHub 上の `main` に `v0.2.0` のコミットを反映する
+- [ ] 最終コミットの CI を確認する
+  - [Android CI](https://github.com/tatsy/androshogi/actions/runs/37209793876)（`8cb4f4e`）は実行中
 - [ ] `v0.2.0-rc1` の署名・バージョン・ABI 別 APK を確認し、実機で動作確認する
 - [ ] `v0.2.0`（versionCode 2）を公開する
-  - `main` の反映後、失敗した Release workflow を再実行する。タグの付け替えは不要
+  - 失敗した Release workflow を再実行する。タグの付け替えは不要
 
 未確認の項目は既知不具合を意味しません。確認中に不具合が見つかった場合は KNOWN_ISSUES に記録します。
 具体的な確認方法と公開手順は CONTRIBUTION にまとめています。
