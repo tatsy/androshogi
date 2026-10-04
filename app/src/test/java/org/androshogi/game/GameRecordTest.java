@@ -19,6 +19,23 @@ public class GameRecordTest {
         return new GameRecord(Shogi.STARTING_SFEN, MOVES, Arrays.asList(5, 7), Arrays.asList(null, "c2"), "B", "W");
     }
 
+    @Test public void startCommentSurvivesCopiesAndRouteChanges() {
+        String comment = "開始局面のコメント\n[AndroShogi解析] 既存の文字列";
+        GameRecord r = new GameRecord(Shogi.STARTING_SFEN, MOVES, Arrays.asList(5, 7),
+                Arrays.asList(null, "c2"), "B", "W", comment);
+        assertEquals(comment, r.startComment());
+        assertNull(r.comment(0));
+        long branch = r.addVariation(GameRecord.ROOT_ID, 99, 0, "分岐");
+        r.selectNode(branch);
+        GameRecord copy = new GameRecord(r);
+        assertEquals(comment, copy.startComment());
+        assertEquals(branch, copy.currentNodeId());
+        r.truncate(0);
+        assertEquals(comment, r.startComment());
+        assertEquals(comment, copy.startComment());
+        assertNull(new GameRecord(Shogi.STARTING_SFEN, "B", "W").startComment());
+    }
+
     @Test
     public void emptyRecordIsAtStartAndEnd() {
         GameRecord r = new GameRecord(Shogi.STARTING_SFEN, "B", "W");

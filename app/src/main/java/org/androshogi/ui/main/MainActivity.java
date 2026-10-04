@@ -1165,7 +1165,7 @@ public class MainActivity extends AppCompatActivity {
         saveGame();
         invalidatePendingGameLoad();
         game.startNew(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
-                parser.getComments(), parser.blackName(), parser.whiteName()), false);
+                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment()), false);
         showRecord();
         Toast.makeText(this, R.string.kifu_loaded, Toast.LENGTH_SHORT).show();
     }

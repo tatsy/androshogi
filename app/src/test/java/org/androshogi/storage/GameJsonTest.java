@@ -34,6 +34,21 @@ public class GameJsonTest {
         return new SavedGame("20260917-120000-abcd", 1700000000000L, 1700000001000L, record, analysis);
     }
 
+    @Test public void roundTripsRootCommentWithoutChangingTheSavedFormat() throws JSONException {
+        String comment = "元の開始局面コメント\n[AndroShogi解析] 開始局面（評価値は先手基準）\n候補1：評価値 +50";
+        GameRecord record = new GameRecord(START, Arrays.asList(1001),
+                Collections.singletonList(3), Collections.singletonList("初手のコメント"), "B", "W", comment);
+        GameAnalysis analysis = new GameAnalysis(record);
+        SavedGame game = new SavedGame("root-comment", 100, 200, record, analysis);
+        String json = GameJson.write(game);
+        assertEquals(2, new org.json.JSONObject(json).getInt("format"));
+        SavedGame back = GameJson.read(json);
+        assertEquals(comment, back.record.startComment());
+        assertEquals("初手のコメント", back.record.comment(0));
+        assertEquals(0, back.analysis.count());
+        assertEquals(comment, new GameRecord(back.record).startComment());
+    }
+
     @Test
     public void roundTripsTheRecordAndItsPosition() throws JSONException {
         SavedGame back = GameJson.read(GameJson.write(sampleGame()));

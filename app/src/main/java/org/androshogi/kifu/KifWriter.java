@@ -68,9 +68,15 @@ public final class KifWriter {
     public static String write(GameRecord record, long createdAt, GameAnalysis analysis) {
         List<Ply> plies = new ArrayList<>(record.length());
         Board board = analysis == null ? null : new Board(record.startSfen());
-        String startComment = null;
+        String startComment = record.startComment();
         try {
-            if (board != null) startComment = KifAnalysisComment.describe(board, analysis.get(0), 0, Shogi.MOVE_NONE);
+            if (board != null) {
+                String extra = KifAnalysisComment.describe(board, analysis.get(0), 0, Shogi.MOVE_NONE);
+                if (extra != null) {
+                    startComment = startComment == null || startComment.isEmpty()
+                            ? extra : startComment + "\n" + extra;
+                }
+            }
             for (int i = 0; i < record.length(); i++) {
                 int move = record.move(i);
                 boolean drop = Move.isDrop(move);

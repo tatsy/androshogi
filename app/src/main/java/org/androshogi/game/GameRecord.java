@@ -39,17 +39,27 @@ public final class GameRecord {
     private int currentPly;
 
     public GameRecord(String startSfen, String blackName, String whiteName) {
+        this(startSfen, blackName, whiteName, null);
+    }
+
+    public GameRecord(String startSfen, String blackName, String whiteName, String startComment) {
         this.startSfen = startSfen;
         this.blackName = blackName;
         this.whiteName = whiteName;
-        nodes.put(ROOT_ID, new GameNode(ROOT_ID, null, Shogi.MOVE_NONE, 0, null));
+        nodes.put(ROOT_ID, new GameNode(ROOT_ID, null, Shogi.MOVE_NONE, 0, startComment));
         rebuildRoute();
     }
 
     /** Loaded linear records start at their end; missing move metadata is padded. */
     public GameRecord(String startSfen, List<Integer> moves, List<Integer> times,
                       List<String> comments, String blackName, String whiteName) {
-        this(startSfen, blackName, whiteName);
+        this(startSfen, moves, times, comments, blackName, whiteName, null);
+    }
+
+    /** Keeps comments before the first move on the root position as ordinary text. */
+    public GameRecord(String startSfen, List<Integer> moves, List<Integer> times,
+                      List<String> comments, String blackName, String whiteName, String startComment) {
+        this(startSfen, blackName, whiteName, startComment);
         long parent = ROOT_ID;
         for (int i = 0; i < moves.size(); i++) {
             parent = appendChild(parent, moves.get(i),
@@ -78,6 +88,7 @@ public final class GameRecord {
     }
 
     public String startSfen() { return startSfen; }
+    public String startComment() { return nodes.get(ROOT_ID).comment(); }
     public String blackName() { return blackName; }
     public String whiteName() { return whiteName; }
     public void setPlayerNames(String black, String white) { blackName = black; whiteName = white; }

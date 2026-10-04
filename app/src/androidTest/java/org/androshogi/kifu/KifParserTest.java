@@ -78,6 +78,21 @@ public class KifParserTest {
         assertEquals(square(4, 5), Move.dest(moves.get(4)));
     }
 
+    @Test public void ordinaryInitialCommentsSurviveBothEncodingsAndPlainExport() throws Exception {
+        String kif = "手合割：平手\n*開始局面のコメント\n*続き\n"
+                + "手数----指手---------消費時間--\n1 ７六歩(77)\n*初手のコメント\n";
+        for (Charset charset : Arrays.asList(KifTextCodec.SHIFT_JIS, StandardCharsets.UTF_8)) {
+            KifParser parser = KifParser.parse(new String(KifTextCodec.encode(kif, charset), charset));
+            assertEquals("開始局面のコメント\n続き", parser.getStartComment());
+            org.androshogi.game.GameRecord record = new org.androshogi.game.GameRecord(parser.getSFEN(),
+                    parser.getMoves(), parser.getTimes(), parser.getComments(),
+                    parser.blackName(), parser.whiteName(), parser.getStartComment());
+            KifParser back = KifParser.parse(KifWriter.write(record, 0));
+            assertEquals(parser.getStartComment(), back.getStartComment());
+            assertEquals(parser.getComments(), back.getComments());
+        }
+    }
+
     @Test
     public void defaultsPlayerNamesWhenHeadersAreMissing() {
         KifParser parser = KifParser.parse("   1 ７六歩(77)");

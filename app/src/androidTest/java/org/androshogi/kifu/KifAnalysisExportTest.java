@@ -25,7 +25,7 @@ public class KifAnalysisExportTest {
             int second = Move.fromUSI(board, "3c3d");
             int variation = Move.fromUSI(board, "8c8d");
             GameRecord record = new GameRecord(Shogi.STARTING_SFEN, Arrays.asList(first, second),
-                    Arrays.asList(1, 2), Arrays.asList("元コメント", "本譜"), "先手", "後手");
+                    Arrays.asList(1, 2), Arrays.asList("元コメント", "本譜"), "先手", "後手", "元のヘッダコメント");
             GameAnalysis analysis = new GameAnalysis(record);
             analysis.put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,
                     Collections.singletonList(EngineInfo.parse("info depth 10 score cp 50 pv 7g7f 3c3d")), "7g7f"));
@@ -36,6 +36,8 @@ public class KifAnalysisExportTest {
             String exported = KifWriter.write(record, 0, analysis);
             assertFalse(plain.contains("AndroShogi解析"));
             assertTrue(exported.contains("*元コメント\n*[AndroShogi解析] 1手目後"));
+            assertTrue(exported.contains("*元のヘッダコメント\n*[AndroShogi解析] 開始局面"));
+            assertEquals("元のヘッダコメント", record.startComment());
             assertTrue(exported.contains("*候補1：評価値 +120 / 深さ 18\n*読み筋1：△３四歩 ▲２六歩"));
             assertTrue(exported.indexOf("候補1：評価値 +120") < exported.indexOf("候補2：評価値 -80"));
             assertTrue(exported.indexOf("開始局面") < exported.indexOf("   1 "));
@@ -45,12 +47,22 @@ public class KifAnalysisExportTest {
             KifParser parser = KifParser.parse(exported);
             assertTrue(parser.getComments().get(0).contains("読み筋1：△３四歩"));
             GameRecord imported = new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
-                    parser.getComments(), parser.blackName(), parser.whiteName());
+                    parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment());
+            assertTrue(parser.getStartComment().contains("[AndroShogi解析] 開始局面"));
+            assertEquals(parser.getStartComment(), imported.startComment());
+            String reexported = KifWriter.write(imported, 0);
+            assertTrue(reexported.contains("*[AndroShogi解析] 開始局面"));
+            assertEquals(parser.getStartComment(), KifParser.parse(reexported).getStartComment());
             GameAnalysis repeated = new GameAnalysis(imported);
+            assertEquals(0, repeated.count());
+            repeated.put(0, analysis.get(0));
             repeated.put(1, analysis.get(1));
             String again = KifWriter.write(imported, 0, repeated);
             // Re-imported analysis is ordinary text: preserve it and append the current result.
             assertEquals(2, again.split("1手目後", -1).length - 1);
+            assertEquals(2, again.split("開始局面", -1).length - 1);
+            assertTrue(again.contains("*" + imported.startComment().replace("\n", "\n*") + "\n"
+                    + "*[AndroShogi解析] 開始局面"));
             assertTrue(again.contains("*" + imported.comment(0).replace("\n", "\n*") + "\n"
                     + "*[AndroShogi解析] 1手目後"));
             assertEquals(parser.getComments().get(0), imported.comment(0));

@@ -91,6 +91,8 @@ public class KifParser {
     }
 
     public String getSFEN() { return sfen; }
+    /** Comments before the first move, belonging to the starting position. */
+    public String getStartComment() { return comment; }
     public List<Integer> getMoves() { return moves; }
     /** Seconds spent on each move, aligned with {@link #getMoves()}; entries may be missing at the end. */
     public List<Integer> getTimes() { return times; }

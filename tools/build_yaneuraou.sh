@@ -87,7 +87,7 @@ for ARCH in "${ARCHS[@]}"; do
         )
 
         "$NDK/ndk-build" clean "${COMMON_ARGS[@]}"
-        "$NDK/ndk-build" "-j" "${COMMON_ARGS[@]}"
+        "$NDK/ndk-build" "-j${JOBS}" "${COMMON_ARGS[@]}"
 
         JNI_PATH="$JNI_DIR/$ARCH"
         mkdir -p "$JNI_PATH"

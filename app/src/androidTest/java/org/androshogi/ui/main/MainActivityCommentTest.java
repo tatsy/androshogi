@@ -69,6 +69,21 @@ public class MainActivityCommentTest {
         }
     }
 
+    @Test public void initialCommentsAreDisplayedAfterKifImport() {
+        String comment = "開始局面のコメント\n[AndroShogi解析] 開始局面（評価値は先手基準）";
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            onView(withId(R.id.board_view)).check(matches(isDisplayed()));
+            scenario.onActivity(activity -> activity.parseShogiData(HEADER
+                    + "*" + comment.replace("\n", "\n*") + "\n1 ７六歩(77)\n*初手のコメント\n"));
+            onView(withId(R.id.tab_comment)).perform(click());
+            onView(withId(R.id.comment_view)).check(matches(withText("初手のコメント")));
+            onView(withId(R.id.backward_button)).perform(click());
+            onView(withId(R.id.comment_view)).check(matches(withText(comment)));
+            scenario.onActivity(activity -> assertEquals(comment,
+                    ((BoardView) activity.findViewById(R.id.board_view)).getRecord().startComment()));
+        }
+    }
+
     @Test
     public void longCommentsScrollAndBranchSwitchesShowTheirOwnComment() {
         StringBuilder lines = new StringBuilder();

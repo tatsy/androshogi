@@ -33,6 +33,7 @@ public final class GameSession {
 
     public boolean isScratchGame() {
         return !record.hasMoves() && analysis.count() == 0
+                && (record.startComment() == null || record.startComment().isEmpty())
                 && Shogi.STARTING_SFEN.equals(record.startSfen());
     }
 

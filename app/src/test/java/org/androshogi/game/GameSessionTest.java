@@ -37,6 +37,18 @@ public class GameSessionTest {
         assertEquals("id-2", game.id());
     }
 
+    @Test public void startCommentKeepsAnOtherwiseEmptyGameFromBeingDiscarded() {
+        String comment = "開始局面のコメント";
+        GameSession game = new GameSession(new GameRecord(Shogi.STARTING_SFEN, "B", "W", comment),
+                () -> "id-" + ids.incrementAndGet(), time::get);
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(300);
+        assertEquals(comment, saved.record.startComment());
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertEquals(comment, saved.record.startComment());
+    }
+
     @Test public void analyzedOrModifiedGameGetsANewId() {
         GameSession game = session();
         game.analysis().put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,
