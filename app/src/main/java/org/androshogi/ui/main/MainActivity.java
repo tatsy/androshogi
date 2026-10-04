@@ -949,7 +949,7 @@ public class MainActivity extends AppCompatActivity {
         return KifWriter.write(game.record(), game.createdAt());
     }
 
-    /** Lets the user choose the on-disk encoding explicitly before opening the document picker. */
+    /** Chooses encoding and optional analysis comments before opening the document picker. */
     private void saveKifFile() {
         if (!requireIdleNavigation()) {
             return;
@@ -958,18 +958,20 @@ public class MainActivity extends AppCompatActivity {
         if (text == null) {
             return;
         }
-        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Androshogi_AlertDialog)
-                .setTitle(R.string.save_kifu)
-                .setItems(R.array.kifu_file_types, (dialog, choice) -> {
-                    pendingKifExport = text;
-                    pendingKifFormat = choice;
-                    if (AppSettings.kifSaveFolder(this) == null) {
-                        promptForKifFolder();
-                    } else {
-                        launchPendingKifExport();
-                    }
-                })
-                .show();
+        boolean hasAnalysis = false;
+        for (int ply = 0; ply <= game.record().length(); ply++) {
+            if (game.analysis().has(ply)) { hasAnalysis = true; break; }
+        }
+        KifExportDialog.show(this, hasAnalysis, (choice, includeAnalysis) -> {
+            pendingKifExport = includeAnalysis
+                    ? KifWriter.write(game.record(), game.createdAt(), game.analysis()) : text;
+            pendingKifFormat = choice;
+            if (AppSettings.kifSaveFolder(this) == null) {
+                promptForKifFolder();
+            } else {
+                launchPendingKifExport();
+            }
+        });
     }
 
     private void promptForKifFolder() {

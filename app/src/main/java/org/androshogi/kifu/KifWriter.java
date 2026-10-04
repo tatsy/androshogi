@@ -2,8 +2,10 @@ package org.androshogi.kifu;
 
 import org.androshogi.shogi.Move;
 import org.androshogi.shogi.Shogi;
+import org.androshogi.shogi.Board;
 
 import org.androshogi.game.GameRecord;
+import org.androshogi.game.GameAnalysis;
 
 
 import java.text.SimpleDateFormat;
@@ -59,15 +61,35 @@ public final class KifWriter {
      * @param createdAt when the game began, in epoch milliseconds, for the 開始日時 line; 0 leaves it out
      */
     public static String write(GameRecord record, long createdAt) {
+        return write(record, createdAt, null);
+    }
+
+    /** Non-null analysis opts into exporting results for the selected route. */
+    public static String write(GameRecord record, long createdAt, GameAnalysis analysis) {
         List<Ply> plies = new ArrayList<>(record.length());
-        for (int i = 0; i < record.length(); i++) {
-            int move = record.move(i);
-            boolean drop = Move.isDrop(move);
-            plies.add(new Ply(Shogi.PieceType.values()[Move.piece(move)],
-                    drop ? NO_SQUARE : Move.source(move), Move.dest(move), Move.isProm(move),
-                    record.timeSeconds(i), record.comment(i)));
+        Board board = analysis == null ? null : new Board(record.startSfen());
+        String startComment = null;
+        try {
+            if (board != null) startComment = KifAnalysisComment.describe(board, analysis.get(0), 0, Shogi.MOVE_NONE);
+            for (int i = 0; i < record.length(); i++) {
+                int move = record.move(i);
+                boolean drop = Move.isDrop(move);
+                String comment = record.comment(i);
+                if (board != null) {
+                    board.push(move);
+                    String extra = KifAnalysisComment.describe(board, analysis.get(i + 1), i + 1, move);
+                    if (extra != null) {
+                        comment = comment == null || comment.isEmpty() ? extra : comment + "\n" + extra;
+                    }
+                }
+                plies.add(new Ply(Shogi.PieceType.values()[Move.piece(move)],
+                        drop ? NO_SQUARE : Move.source(move), Move.dest(move), Move.isProm(move),
+                        record.timeSeconds(i), comment));
+            }
+        } finally {
+            if (board != null) board.cleanup();
         }
-        return format(record.startSfen(), record.blackName(), record.whiteName(), createdAt, plies);
+        return format(record.startSfen(), record.blackName(), record.whiteName(), createdAt, plies, startComment);
     }
 
     /**
@@ -77,6 +99,11 @@ public final class KifWriter {
      */
     public static String format(String startSfen, String blackName, String whiteName,
                                 long createdAt, List<Ply> plies) {
+        return format(startSfen, blackName, whiteName, createdAt, plies, null);
+    }
+
+    static String format(String startSfen, String blackName, String whiteName,
+                         long createdAt, List<Ply> plies, String startComment) {
         StringBuilder sb = new StringBuilder();
         sb.append("# ---- AndroShogi 棋譜ファイル ----\n");
         if (createdAt > 0) {
@@ -92,6 +119,7 @@ public final class KifWriter {
         sb.append("先手：").append(blackName).append('\n');
         sb.append("後手：").append(whiteName).append('\n');
         sb.append("手数----指手---------消費時間--\n");
+        appendComment(sb, startComment);
 
         // 消費時間 accumulates per player, as the readers show it.
         int[] total = new int[2];
@@ -105,15 +133,16 @@ public final class KifWriter {
                     i + 1, text, padding(text),
                     ply.seconds / 60, ply.seconds % 60,
                     total[side] / 3600, total[side] % 3600 / 60, total[side] % 60));
-            if (ply.comment != null && !ply.comment.isEmpty()) {
-                for (String line : ply.comment.split("\n", -1)) {
-                    sb.append('*').append(line).append('\n');
-                }
-            }
+            appendComment(sb, ply.comment);
             previousTo = ply.to;
             side ^= 1;
         }
         return sb.toString();
+    }
+
+    private static void appendComment(StringBuilder sb, String comment) {
+        if (comment == null || comment.isEmpty()) return;
+        for (String line : comment.split("\n", -1)) sb.append('*').append(line).append('\n');
     }
 
     /**

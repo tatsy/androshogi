@@ -22,6 +22,11 @@
     <string name="kifu_file_read_failed">KIF ファイルを読み込めませんでした</string>
     <string name="paste_kifu">棋譜を貼り付け</string>
     <string name="save_kifu">KIF ファイルを保存</string>
+    <string name="kifu_export_save">保存</string>
+    <string name="kifu_export_shift_jis">.kif（Shift_JIS）</string>
+    <string name="kifu_export_utf8">.kifu（UTF-8）</string>
+    <string name="kifu_include_analysis">解析結果をコメントに含める</string>
+    <string name="kifu_no_analysis">書き出す棋譜に保存済みの解析結果がありません</string>
     <string name="kifu_file_saved">KIF ファイルを保存しました</string>
     <string name="kifu_folder_title">KIF の保存先</string>
     <string name="kifu_folder_message">初回は「Documents」などに AndroShogi フォルダーを作成して選んでください。次回からこのフォルダーを最初に表示するよう指定します。</string>
