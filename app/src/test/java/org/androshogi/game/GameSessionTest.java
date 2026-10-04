@@ -37,6 +37,18 @@ public class GameSessionTest {
         assertEquals("id-2", game.id());
     }
 
+    @Test public void startCommentKeepsAnOtherwiseEmptyGameFromBeingDiscarded() {
+        String comment = "開始局面のコメント";
+        GameSession game = new GameSession(new GameRecord(Shogi.STARTING_SFEN, "B", "W", comment),
+                () -> "id-" + ids.incrementAndGet(), time::get);
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(300);
+        assertEquals(comment, saved.record.startComment());
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertEquals(comment, saved.record.startComment());
+    }
+
     @Test public void analyzedOrModifiedGameGetsANewId() {
         GameSession game = session();
         game.analysis().put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,
@@ -55,7 +67,7 @@ public class GameSessionTest {
         GameSession game = session();
         GameAnalysis viewAnalysis = game.analysis();
         GameRecord other = new GameRecord("other-start", "A", "B");
-        GameAnalysis otherAnalysis = new GameAnalysis();
+        GameAnalysis otherAnalysis = new GameAnalysis(other);
         otherAnalysis.put(0, PositionAnalysis.from("other-start", Collections.emptyList(), null));
         game.load(new SavedGame("loaded", 42, 70, other, otherAnalysis));
 
@@ -83,4 +95,23 @@ public class GameSessionTest {
         assertEquals(1, saved.record.length());
         assertEquals(1, saved.analysis.count());
     }
+
+    @Test public void snapshotAnalysisIsBoundToTheCopiedTree() {
+        GameSession game = session();
+        long main = game.record().addVariation(0, 42, 0, null);
+        long branch = game.record().addVariation(0, 43, 0, null);
+        PositionAnalysis original = PositionAnalysis.from("main", Collections.emptyList(), null);
+        PositionAnalysis alternative = PositionAnalysis.from("branch", Collections.emptyList(), null);
+        game.analysis().putByNode(main, original);
+        game.analysis().putByNode(branch, alternative);
+        SavedGame saved = game.snapshot(300);
+        game.record().truncate(0);
+        game.truncateAnalysis(0);
+        saved.record.selectNode(branch);
+        assertSame(alternative, saved.analysis.get(1));
+        saved.record.selectNode(main);
+        assertSame(original, saved.analysis.get(1));
+        assertEquals(2, saved.analysis.count());
+    }
+
 }

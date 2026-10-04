@@ -127,16 +127,22 @@
             app:icon="@drawable/ic_cancel"/>
     </LinearLayout>
 
-    <!-- 情報エリアの切り替え: 読み筋 / 棋譜 / グラフ -->
+    <!-- 情報エリアの切り替え: コメント / 読み筋 / 棋譜 / グラフ -->
     <com.google.android.material.button.MaterialButtonToggleGroup
         android:id="@+id/info_tabs"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
+        android:layout_marginHorizontal="8dp"
         android:layout_marginBottom="4dp"
         app:singleSelection="true"
         app:selectionRequired="true"
         app:checkedButton="@id/tab_reading">
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/InfoTabButton"
+            android:id="@+id/tab_comment"
+            android:text="@string/tab_comment"/>
 
         <com.google.android.material.button.MaterialButton
             style="@style/InfoTabButton"
@@ -161,6 +167,25 @@
         android:layout_weight="1"
         android:layout_marginHorizontal="8dp"
         android:background="@drawable/textarea_background">
+
+        <ScrollView
+            android:id="@+id/comment_panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/comment_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:gravity="top|start"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="14sp"
+                android:fontFamily="@font/noto_sans_jp"
+                android:textIsSelectable="true" />
+        </ScrollView>
 
         <org.androshogi.ui.main.EngineView
             android:id="@+id/engine_view"

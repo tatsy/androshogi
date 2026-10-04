@@ -3,8 +3,8 @@ name: Release
 # Two ways in. A v* tag is a real release and is cut from main only: a tag
 # whose commit is not contained in main fails in the verify job, before any
 # build runner is started. A manual run is a build to try on a device, is
-# published as a prerelease tagged build-<コミットの先頭6桁>, and may come
-# from any branch.
+# saved as a draft tagged build-YYYYMMDD-<コミットの先頭6桁>, and may come
+# from any branch. The date is the build date in Asia/Tokyo.
 on:
   push:
     tags:
@@ -28,6 +28,7 @@ jobs:
       # GITHUB_REF_NAME はブランチ名で、スラッシュを含むとファイル名が壊れる。
       tag: ${{ steps.name.outputs.tag }}
       prerelease: ${{ steps.name.outputs.prerelease }}
+      draft: ${{ steps.name.outputs.draft }}
       version_code: ${{ steps.version.outputs.version_code }}
     steps:
       - uses: actions/checkout@v6
@@ -50,20 +51,26 @@ jobs:
       - name: Name the release
         id: name
         run: |
+          set -euo pipefail
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             tag="$GITHUB_REF_NAME"
+            draft=false
+            # v0.2.0-rc1 などのタグ付き RC は従来どおり公開する。
+            case "$tag" in
+              *-*) prerelease=true ;;
+              *) prerelease=false ;;
+            esac
           else
-            # 手動実行にはタグがないので、コミットから作る。
-            tag="build-${GITHUB_SHA:0:6}"
+            # 手動ビルドは実行日（日本時間）とコミットで識別し、未公開に留める。
+            build_date=$(TZ=Asia/Tokyo date +%Y%m%d)
+            tag="build-${build_date}-${GITHUB_SHA:0:6}"
+            draft=true
+            prerelease=false
           fi
-          # ハイフンを含むタグ (v1.0.0-rc1, build-abc123) は prerelease 扱い。
-          case "$tag" in
-            *-*) prerelease=true ;;
-            *) prerelease=false ;;
-          esac
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
-          echo "release tag: ${tag} (prerelease: ${prerelease})"
+          echo "draft=${draft}" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${tag} (draft: ${draft}, prerelease: ${prerelease})"
 
       # Stable releases use their ordinal tag number (v0.1.0 = 1).
       # RCs use the number reserved for their stable release; manual builds
@@ -141,7 +148,7 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-34" \
-            "build-tools;34.0.0" \
+            "build-tools;36.0.0" \
             "ndk;27.2.12479018" \
             "cmake;3.22.1"
 
@@ -208,7 +215,7 @@ jobs:
             exit 1
           fi
 
-          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          package_info=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
           if [[ "$package_info" != "package: name='org.androshogi' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
             echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
             exit 1
@@ -217,7 +224,7 @@ jobs:
 
           # Verify the APK signature and pin it to the release certificate.
           # KEY_SHA256 checks the JKS file, not the certificate in the APK.
-          if ! signing_info=$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "${apks[0]}"); then
+          if ! signing_info=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apks[0]}"); then
             echo "::error::Signature verification failed for ${ABI} APK"
             exit 1
           fi
@@ -233,7 +240,7 @@ jobs:
           mv "${apks[0]}" "dist/androshogi-${TAG}-${ABI}.apk"
           ls -lh dist
 
-      # Manual prereleases are also used for on-device engine diagnostics.
+      # Manual drafts are also used for on-device engine diagnostics.
       # Keep tagged releases limited to the normal release APKs.
       - name: Build the debug APK for a manual run
         if: github.event_name == 'workflow_dispatch'
@@ -268,7 +275,7 @@ jobs:
             exit 1
           fi
 
-          package_info=$("$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
+          package_info=$("$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "${apks[0]}" | sed -n '1p')
           if [[ "$package_info" != "package: name='org.androshogi.debug' versionCode='${VERSION_CODE}' versionName='${TAG}'"* ]]; then
             echo "::error::${ABI} APK has unexpected package/version metadata: $package_info"
             exit 1
@@ -278,7 +285,7 @@ jobs:
           mv "${apks[0]}" "dist/androshogi-${TAG}-${ABI}-debug.apk"
           ls -lh dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           # v4 does not merge same-named artifacts, so name per ABI.
           name: apk-${{ matrix.abi }}
@@ -297,7 +304,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6.0.0
         with:
           pattern: apk-*
           merge-multiple: true
@@ -377,19 +384,21 @@ jobs:
 
           本アプリは GPLv3 です。局面管理に cshogi (Apery 由来)、思考エンジンに
           やねうら王を同梱しており、いずれも GPLv3 です。評価関数は含みません。
-          ライセンス、第三者表記、対応するソースは、このタグの
-          [LICENSE](https://github.com/tatsy/androshogi/blob/TAG/LICENSE)、
-          [THIRD_PARTY_NOTICES.md](https://github.com/tatsy/androshogi/blob/TAG/THIRD_PARTY_NOTICES.md)、
-          [ソースコード](https://github.com/tatsy/androshogi/tree/TAG)を参照してください。
+          ライセンス、第三者表記、対応するソースは、このビルドの
+          [LICENSE](https://github.com/tatsy/androshogi/blob/SOURCE_REF/LICENSE)、
+          [THIRD_PARTY_NOTICES.md](https://github.com/tatsy/androshogi/blob/SOURCE_REF/docs/THIRD_PARTY_NOTICES.md)、
+          [ソースコード](https://github.com/tatsy/androshogi/tree/SOURCE_REF)を参照してください。
           エンジンの配布元とビルド情報は
-          [README](https://github.com/tatsy/androshogi/blob/TAG/README.md)に記載しています。
+          [README](https://github.com/tatsy/androshogi/blob/SOURCE_REF/README.md)に記載しています。
           NOTES
 
-          # 手動ビルドはバージョンではなくコミットを配るものなので、その旨を頭に置く。
-          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+          source_ref="$TAG"
+          # Draft のタグは公開まで作られないため、ソースへのリンクはコミットを使う。
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            source_ref="$GITHUB_SHA"
             cat > preface.md <<PREFACE
           これは \`${GITHUB_SHA}\` を手動ビルドしたものです。バージョンを区切った
-          リリースではなく、端末で試すためのビルドとして公開しています。
+          リリースではなく、端末で試すための Draft Release として保存しています。
           設定画面のバージョンには \`${TAG}\` と表示されます。
 
           PREFACE
@@ -412,7 +421,7 @@ jobs:
           DEBUG_NOTES
           fi
 
-          sed -i "s|TAG|${TAG}|g" release-notes.md
+          sed -i "s|SOURCE_REF|${source_ref}|g; s|TAG|${TAG}|g" release-notes.md
           cat release-notes.md
 
       - name: Create the GitHub release
@@ -422,25 +431,29 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.verify.outputs.tag }}
           PRERELEASE: ${{ needs.verify.outputs.prerelease }}
+          DRAFT: ${{ needs.verify.outputs.draft }}
         run: |
-          # 同じコミットを手動で回し直したときは、前のビルドを置き換える。
+          set -euo pipefail
+          # 同じ日・同じコミットの手動再実行は、前の Draft を置き換える。
           # タグを打ったリリースには触れない。
           if [ "$GITHUB_EVENT_NAME" != "push" ] && gh release view "$TAG" >/dev/null 2>&1; then
             echo "Replacing the earlier build published as ${TAG}."
-            gh release delete "$TAG" --yes --cleanup-tag
+            gh release delete "$TAG" --yes
           fi
 
-          prerelease=""
-          if [ "$PRERELEASE" = "true" ]; then
-            prerelease="--prerelease"
+          release_flags=()
+          if [ "$DRAFT" = "true" ]; then
+            release_flags+=(--draft)
+          elif [ "$PRERELEASE" = "true" ]; then
+            release_flags+=(--prerelease)
           fi
 
-          # 手動実行のタグはまだ存在しないので、実行したコミットに作らせる。
+          # Draft は未公開に留める。手動ビルドのタグは公開時にこのコミットへ作られる。
           # タグが既にある場合 (v*) target は使われない。
           gh release create "$TAG" \
             --target "$GITHUB_SHA" \
             --title "$TAG" \
             --notes-file release-notes.md \
             --generate-notes \
-            $prerelease \
+            "${release_flags[@]}" \
             dist/*.apk

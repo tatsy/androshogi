@@ -96,7 +96,7 @@ public final class MoveNotation {
                                 int sideToMove, int previousTo, List<Integer> otherFroms) {
         StringBuilder sb = new StringBuilder();
         sb.append(to == previousTo ? "同" : Shogi.Square.values()[to].kanji());
-        sb.append(piece.toKanji());
+        sb.append(pieceName(piece));
         if (from == NO_SQUARE) {
             sb.append("打");
             return sb.toString();
@@ -110,6 +110,20 @@ public final class MoveNotation {
             sb.append("不成");
         }
         return sb.toString();
+    }
+
+    /** Move text spells out promoted minor pieces; board symbols remain single characters. */
+    private static String pieceName(Shogi.PieceType piece) {
+        switch (piece) {
+            case PROM_LANCE:
+                return "成香";
+            case PROM_KNIGHT:
+                return "成桂";
+            case PROM_SILVER:
+                return "成銀";
+            default:
+                return piece.toKanji();
+        }
     }
 
     // Vertical motion seen from the mover, and lateral position of the source seen from the mover.

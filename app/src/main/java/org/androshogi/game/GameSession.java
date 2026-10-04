@@ -12,7 +12,7 @@ public final class GameSession {
     private final Supplier<String> newId;
     private final LongSupplier clock;
     // Keep this instance stable: views hold a reference to it while a game is loaded.
-    private final GameAnalysis analysis = new GameAnalysis();
+    private final GameAnalysis analysis;
     private GameRecord record;
     private String id;
     private long createdAt;
@@ -21,6 +21,7 @@ public final class GameSession {
         this.newId = newId;
         this.clock = clock;
         record = initialRecord;
+        analysis = new GameAnalysis(record);
         id = newId.get();
         createdAt = clock.getAsLong();
     }
@@ -32,6 +33,7 @@ public final class GameSession {
 
     public boolean isScratchGame() {
         return !record.hasMoves() && analysis.count() == 0
+                && (record.startComment() == null || record.startComment().isEmpty())
                 && Shogi.STARTING_SFEN.equals(record.startSfen());
     }
 
@@ -42,14 +44,14 @@ public final class GameSession {
         }
         createdAt = clock.getAsLong();
         record = next;
-        analysis.clear();
+        analysis.resetForRecord(record);
     }
 
     public void load(SavedGame saved) {
         id = saved.id;
         createdAt = saved.createdAt;
         record = saved.record;
-        analysis.clear();
+        analysis.resetForRecord(record);
         analysis.putAll(saved.analysis);
     }
 
@@ -58,19 +60,20 @@ public final class GameSession {
     }
 
     /** Stores only a normally completed result for the unchanged record and position. */
-    public boolean storeResult(GameRecord searched, int ply, String positionSfen,
+    public boolean storeResult(GameRecord searched, int ply, long nodeId, String positionSfen,
                                EngineSession.SearchResult result) {
         if (result == null || !result.completedNormally() || searched != record
-                || ply < 0 || ply > record.length() || !result.sfen.equals(positionSfen)) {
+                || ply < 0 || ply > record.length() || record.nodeIdAtPly(ply) != nodeId
+                || !result.sfen.equals(positionSfen)) {
             return false;
         }
-        analysis.put(ply, PositionAnalysis.from(result));
+        analysis.putByNode(nodeId, PositionAnalysis.from(result));
         return true;
     }
 
     /** Makes detached data for the I/O executor; the live game remains on the UI thread. */
     public SavedGame snapshot(long updatedAt) {
-        return new SavedGame(id, createdAt, updatedAt,
-                new GameRecord(record), new GameAnalysis(analysis));
+        GameRecord copy = new GameRecord(record);
+        return new SavedGame(id, createdAt, updatedAt, copy, new GameAnalysis(analysis, copy));
     }
 }

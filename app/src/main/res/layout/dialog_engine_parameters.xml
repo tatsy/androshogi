@@ -19,6 +19,20 @@
         android:id="@+id/consider_time_spinner"
         android:entries="@array/consider_time_choices"/>
 
+    <!-- 同時に探索する候補数 -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/analysis_multipv_title"
+        android:textSize="16sp"
+        android:layout_marginTop="15dp"
+        android:layout_marginBottom="5dp" />
+    <Spinner
+        android:id="@+id/consider_multipv_spinner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:entries="@array/multipv_entries"/>
+
     <!-- 検討開始局面の選択 -->
     <TextView
         android:layout_width="wrap_content"

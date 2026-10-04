@@ -19,6 +19,23 @@ public class GameRecordTest {
         return new GameRecord(Shogi.STARTING_SFEN, MOVES, Arrays.asList(5, 7), Arrays.asList(null, "c2"), "B", "W");
     }
 
+    @Test public void startCommentSurvivesCopiesAndRouteChanges() {
+        String comment = "開始局面のコメント\n[AndroShogi解析] 既存の文字列";
+        GameRecord r = new GameRecord(Shogi.STARTING_SFEN, MOVES, Arrays.asList(5, 7),
+                Arrays.asList(null, "c2"), "B", "W", comment);
+        assertEquals(comment, r.startComment());
+        assertNull(r.comment(0));
+        long branch = r.addVariation(GameRecord.ROOT_ID, 99, 0, "分岐");
+        r.selectNode(branch);
+        GameRecord copy = new GameRecord(r);
+        assertEquals(comment, copy.startComment());
+        assertEquals(branch, copy.currentNodeId());
+        r.truncate(0);
+        assertEquals(comment, r.startComment());
+        assertEquals(comment, copy.startComment());
+        assertNull(new GameRecord(Shogi.STARTING_SFEN, "B", "W").startComment());
+    }
+
     @Test
     public void emptyRecordIsAtStartAndEnd() {
         GameRecord r = new GameRecord(Shogi.STARTING_SFEN, "B", "W");
@@ -119,4 +136,149 @@ public class GameRecordTest {
         assertEquals(0, r.length());
         assertEquals(0, r.currentPly());
     }
+
+    @Test public void nodeIdsFollowPositionsAndAreNeverReusedAfterAnEdit() {
+        GameRecord r = fourMoves();
+        long first = r.nodeIdAtPly(1);
+        long second = r.nodeIdAtPly(2);
+        long end = r.nodeIdAtPly(4);
+        r.seek(1);
+        r.play(22);
+        assertEquals(second, r.currentNodeId());
+        r.seek(1);
+        r.play(99);
+        assertEquals(first, r.nodeIdAtPly(1));
+        assertTrue(r.currentNodeId() > end);
+        assertNull(r.node(second));
+        assertEquals(Long.valueOf(first), r.node(r.currentNodeId()).parentId());
+    }
+
+    @Test public void selectionKeepsMainLineAndVariationMetadata() {
+        GameRecord r = fourMoves();
+        long parent = r.nodeIdAtPly(1);
+        long main = r.nodeIdAtPly(2);
+        long variation = r.addVariation(parent, 99, 17, "variation");
+        long leaf = r.addVariation(variation, 88, 9, "continuation");
+        assertEquals(MOVES, r.moves());
+        assertEquals(Long.valueOf(main), r.node(parent).mainChildId());
+        assertEquals(variation, r.addVariation(parent, 99, 0, null));
+        r.selectNode(variation);
+        assertEquals(Arrays.asList(11, 99, 88), r.moves());
+        assertEquals(2, r.currentPly());
+        assertEquals(leaf, r.nodeIdAtPly(3));
+        assertEquals(17, r.timeSeconds(1));
+        assertEquals("variation", r.comment(1));
+        assertEquals(Long.valueOf(main), r.node(parent).mainChildId());
+        r.selectNode(main);
+        assertEquals(MOVES, r.moves());
+        assertEquals(7, r.timeSeconds(1));
+        assertEquals("c2", r.comment(1));
+    }
+
+    @Test public void snapshotDetachesAllBranchesAndTheirSelections() {
+        GameRecord r = fourMoves();
+        long main = r.nodeIdAtPly(2);
+        long branch = r.addVariation(r.nodeIdAtPly(1), 99, 2, "branch");
+        r.selectNode(branch);
+        GameRecord copy = new GameRecord(r);
+        assertEquals(r.nextNodeId(), copy.nextNodeId());
+        r.selectNode(main);
+        r.truncate(0);
+        assertEquals(Arrays.asList(11, 99), copy.moves());
+        assertEquals(branch, copy.currentNodeId());
+        assertEquals(6, copy.nodes().size());
+        copy.selectNode(main);
+        assertEquals(MOVES, copy.moves());
+    }
+
+    @Test public void userMoveKeepsOriginalContinuationAndReusesExistingChildren() {
+        GameRecord r = fourMoves();
+        long main = r.nodeIdAtPly(2);
+        r.seek(1);
+        r.playVariation(99);
+        long branch = r.currentNodeId();
+        assertEquals(Arrays.asList(11, 99), r.moves());
+        assertEquals(6, r.nodes().size());
+        assertFalse(r.isMainLineSelected());
+        r.seek(1);
+        r.playVariation(22);
+        assertEquals(main, r.currentNodeId());
+        assertEquals(MOVES, r.moves());
+        assertEquals(7, r.timeSeconds(1));
+        assertEquals("c2", r.comment(1));
+        assertTrue(r.isMainLineSelected());
+        r.seek(1);
+        r.playVariation(99);
+        assertEquals(branch, r.currentNodeId());
+        assertEquals(6, r.nodes().size());
+    }
+
+    @Test public void returningToMainLineStopsAtTheBranchPointAndKeepsContinuations() {
+        GameRecord r = fourMoves();
+        r.seek(2);
+        r.playVariation(88);
+        long nestedBranch = r.currentNodeId();
+        r.playVariation(77);
+        r.playVariation(66);
+        r.selectMainLine();
+        assertEquals(MOVES, r.moves());
+        assertEquals(2, r.currentPly());
+        assertTrue(r.isMainLineSelected());
+        r.selectNode(nestedBranch);
+        assertEquals(Arrays.asList(11, 22, 88, 77, 66), r.moves());
+        r.seek(1);
+        assertFalse(r.isMainLineSelected()); // A variation is still selected beyond the cursor.
+        r.selectMainLine();
+        assertEquals(1, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        assertEquals(8, r.nodes().size());
+    }
+
+    @Test public void returningFromANestedVariationUsesTheForkOnTheMainLine() {
+        GameRecord r = fourMoves();
+        r.seek(1);
+        r.playVariation(99);
+        r.playVariation(88);
+        r.seek(2);
+        r.playVariation(77);
+        r.selectMainLine();
+        assertEquals(1, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        assertTrue(r.isMainLineSelected());
+        assertEquals(8, r.nodes().size());
+    }
+
+    @Test public void returningFromARootVariationShowsTheStartingPosition() {
+        GameRecord r = fourMoves();
+        r.seekStart();
+        r.playVariation(99);
+        r.playVariation(88);
+        r.selectMainLine();
+        assertEquals(0, r.currentPly());
+        assertEquals(MOVES, r.moves());
+        r.seek(3);
+        r.selectMainLine();
+        assertEquals(3, r.currentPly());
+    }
+
+    @Test public void playingAtAnEmptyEndExtendsTheMainLine() {
+        GameRecord r = new GameRecord(Shogi.STARTING_SFEN, "B", "W");
+        r.selectMainLine();
+        assertTrue(r.isMainLineSelected());
+        r.playVariation(11);
+        r.playVariation(22);
+        assertEquals(Arrays.asList(11, 22), r.moves());
+        assertEquals(2, r.currentPly());
+        assertTrue(r.isMainLineSelected());
+    }
+
+    @Test public void movesViewRemainsReadOnlyAndReflectsEdits() {
+        GameRecord r = fourMoves();
+        List<Integer> view = r.moves();
+        r.truncate(2);
+        assertEquals(Arrays.asList(11, 22), view);
+        org.junit.Assert.assertThrows(UnsupportedOperationException.class, () -> view.add(55));
+        org.junit.Assert.assertThrows(IndexOutOfBoundsException.class, () -> r.move(-1));
+    }
+
 }

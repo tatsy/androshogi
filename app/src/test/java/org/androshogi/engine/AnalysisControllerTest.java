@@ -114,8 +114,20 @@ public class AnalysisControllerTest {
         @Override public void onProgress(int analyzed, int total) {
             progress.add(analyzed + "/" + total);
         }
-        @Override public void onResult(int ply, EngineSession.SearchResult result) { saved.add(ply); }
+        @Override public void onResult(int ply, long nodeId, EngineSession.SearchResult result) { saved.add(ply); }
         @Override public void onPositionAdvanced() { }
         @Override public void onFinished(AnalysisController.Status status) { this.status = status; }
     }
+
+    @Test public void routeChangeAtTheSamePlyDiscardsTheOutstandingSearch() {
+        AnalysisController run = controller();
+        run.start();
+        engine.complete(true); // Now searching at ply 1.
+        long branch = record.addVariation(0, 99, 0, null);
+        record.selectNode(branch); // The fake SFEN depends only on ply, so it is unchanged.
+        engine.complete(true);
+        assertEquals(Collections.singletonList(0), listener.saved);
+        assertEquals(AnalysisController.Status.ERROR, listener.status);
+    }
+
 }

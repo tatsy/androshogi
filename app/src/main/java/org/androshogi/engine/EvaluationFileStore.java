@@ -3,6 +3,8 @@ package org.androshogi.engine;
 import android.content.Context;
 import android.net.Uri;
 
+import org.androshogi.settings.AppSettings;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -16,15 +18,32 @@ public final class EvaluationFileStore {
     private EvaluationFileStore() {}
 
     public static File file(Context context) {
-        return new File(new File(context.getFilesDir(), "eval"), "nn.bin");
+        return file(context, AppSettings.engineKind(context));
+    }
+
+    public static File file(Context context, EngineKind kind) {
+        return file(context.getFilesDir(), kind);
+    }
+
+    static File file(File filesDir, EngineKind kind) {
+        File directory = new File(filesDir, "eval");
+        // Preserve the original model in place; other architectures have their own copy.
+        if (kind != EngineKind.DEFAULT) {
+            directory = new File(directory, kind.id());
+        }
+        return new File(directory, "nn.bin");
     }
 
     public static long importFile(Context context, Uri uri) throws IOException {
+        return importFile(context, uri, AppSettings.engineKind(context));
+    }
+
+    public static long importFile(Context context, Uri uri, EngineKind kind) throws IOException {
         try (InputStream input = context.getContentResolver().openInputStream(uri)) {
             if (input == null) {
                 throw new FileNotFoundException("Cannot open evaluation file");
             }
-            return copy(input, file(context));
+            return copy(input, file(context, kind));
         }
     }
 

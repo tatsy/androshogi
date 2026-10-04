@@ -1,6 +1,7 @@
 package org.androshogi.settings;
 
 import org.androshogi.game.PositionAnalysis;
+import org.androshogi.engine.EngineKind;
 
 import android.content.Context;
 import android.content.Intent;
@@ -17,6 +18,7 @@ import androidx.preference.PreferenceManager;
  * {@code res/xml/preferences.xml}; keep the two in step.
  */
 public final class AppSettings {
+    public static final String KEY_ENGINE_KIND = "engine_kind";
     public static final String KEY_THINK_TIME_MS = "engine_think_time";
     public static final String KEY_MULTI_PV = "engine_multipv";
     public static final String KEY_THREADS = "engine_threads";
@@ -30,6 +32,7 @@ public final class AppSettings {
     public static final String KEY_THEME = "app_theme";
     /** Last value chosen in the analysis dialog; not shown on the settings screen. */
     public static final String KEY_ANALYSIS_TIME_MS = "analysis_time_ms";
+    public static final String KEY_ANALYSIS_MULTI_PV = "analysis_multipv";
     public static final String KEY_APP_VERSION = "app_version";
     /** Id of the game shown when the app was last stopped; restored on the next start. */
     public static final String KEY_LAST_GAME_ID = "last_game_id";
@@ -91,7 +94,22 @@ public final class AppSettings {
     }
 
     public static int fvScale(Context context) {
-        return getInt(context, KEY_FV_SCALE, DEFAULT_FV_SCALE);
+        EngineKind kind = engineKind(context);
+        return getInt(context, fvScaleKey(kind), kind.defaultFvScale());
+    }
+
+    public static EngineKind engineKind(Context context) {
+        return EngineKind.fromId(prefs(context).getString(KEY_ENGINE_KIND, null));
+    }
+
+    private static String fvScaleKey(EngineKind kind) {
+        // Keep the existing Háo / standard-engine setting when upgrading the app.
+        return kind == EngineKind.DEFAULT ? KEY_FV_SCALE : KEY_FV_SCALE + "_" + kind.id();
+    }
+
+    public static void setFvScale(Context context, int value) {
+        prefs(context).edit().putString(fvScaleKey(engineKind(context)),
+                String.valueOf(value)).apply();
     }
 
     /** A user-selected directory shown when the KIF save picker opens. */
@@ -185,5 +203,16 @@ public final class AppSettings {
 
     public static void setAnalysisTimeMs(Context context, int timeMs) {
         prefs(context).edit().putInt(KEY_ANALYSIS_TIME_MS, timeMs).apply();
+    }
+
+    /** First use follows the manual setting; later runs remember the analysis choice. */
+    public static int analysisMultiPv(Context context) {
+        return Math.max(1, Math.min(5,
+                prefs(context).getInt(KEY_ANALYSIS_MULTI_PV, multiPv(context))));
+    }
+
+    public static void setAnalysisMultiPv(Context context, int multiPv) {
+        prefs(context).edit().putInt(KEY_ANALYSIS_MULTI_PV,
+                Math.max(1, Math.min(5, multiPv))).apply();
     }
 }

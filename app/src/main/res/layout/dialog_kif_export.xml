@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <RadioGroup
+        android:id="@+id/kif_export_format"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:checkedButton="@id/kif_export_shift_jis">
+        <RadioButton
+            android:id="@+id/kif_export_shift_jis"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/kifu_export_shift_jis" />
+        <RadioButton
+            android:id="@+id/kif_export_utf8"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/kifu_export_utf8" />
+    </RadioGroup>
+
+    <CheckBox
+        android:id="@+id/kif_include_analysis"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/kifu_include_analysis" />
+
+    <TextView
+        android:id="@+id/kif_no_analysis"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/kifu_no_analysis"
+        android:visibility="gone" />
+</LinearLayout>

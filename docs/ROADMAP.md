@@ -1,332 +1,82 @@
-# AndroShogi 開発ロードマップ
-
-この文書は、新しいリポジトリに含まれる実装状況と今後の作業計画を管理します。
-旧リポジトリでの作業経緯は、その履歴と Release / Pull Request を参照してください。
-現在確認されている不具合は [KNOWN_ISSUES.md](KNOWN_ISSUES.md) に分離します。
-
-## 現在地
-
-このリポジトリは orphan の単一コミットから始め、最初の正式リリースを **v0.1.0（versionCode 1）** とします。
-現在のコードには、将棋の棋譜をやねうら王 NNUE で検討するための基本機能があります。
-評価関数は APK に同梱せず、利用者が設定画面から `nn.bin` を選択します。
-
-- 盤面操作、合法手、成り／不成、持駒、盤反転
-- KIF の読み込み、BOD 初期局面、KIF のコピー／共有
-- 手動検討と MultiPV 表示
-- 棋譜全体の自動解析、キャンセル、進捗表示
-- 手数ごとの解析結果、棋譜リスト、勝率グラフ
-- 棋譜と解析結果の JSON 保存／復元、棋譜一覧
-- エンジン設定、表示設定、ダークモード
-- JVM unit test / Android instrumentation test / GitHub Actions
-- GitHub Releases からの ABI 別 APK 配布
-
-旧リポジトリで列挙した既知不具合 #1–#15 は修正済みです。
-この開始点から CI と実機で最終確認し、v0.1.0 を公開します。
-
----
-
-## v0.1.0 公開準備
-
-### 1. アプリの identity と配布基盤を確定する
-
-v0.1.0 の公開前に、アプリ ID、署名、採番を確認します。
-
-- [x] 正式なアプリ identity を反映する
-  - [x] 表示名は `AndroShogi` に確定
-  - [x] `applicationId` は `org.androshogi` に確定
-  - [x] Java / Android の `namespace` は `org.androshogi` に確定
-  - [x] Manifest の Application / Activity 参照を現在の package 構造に追従
-- [x] 正式な release keystore を作成し、v0.1.0 以降は同じ鍵を継続利用する
-- [x] GitHub Actions の release build を正式鍵で署名する
-- [x] `versionCode` を正式版タグの順番で単調増加させる（`v0.1.0=1`、`v0.2.0=2`。RC は正式版と同じ番号）
-- [x] Release ワークフローで release APK の署名と version 情報を確認する
-- [ ] 必要性を確認したうえで R8 / minify を検討する
-
-旧テスト版の `org.androshogi` が versionCode 2 で端末に入っている場合、
-versionCode 1 の新しい v0.1.0 は上書きできない。必要なデータを退避してから旧版をアンインストールする。
-
-### 2. Java パッケージ構造を整理する
-
-Java / Android の namespace を `org.androshogi` に統一し、UI、棋譜、保存、エンジン、JNI wrapper の責務が package 構造から分かるように整理済み。
-現在の構成は次のとおり。
-
-```text
-org.androshogi
-├── AndroShogiApplication
-├── shogi
-│   ├── Shogi
-│   ├── Board
-│   ├── Move
-│   ├── Piece
-│   ├── LegalMoveList
-│   └── PseudoLegalMoveList
-├── engine
-│   ├── EngineSession
-│   ├── EngineInfo
-│   └── EngineUpdateListener
-├── game
-│   ├── GameRecord
-│   ├── GameAnalysis
-│   └── PositionAnalysis
-├── kifu
-│   ├── KifParser
-│   ├── KifWriter
-│   ├── KifFormat
-│   ├── BodParser
-│   └── MoveNotation
-├── storage
-│   ├── GameStore
-│   ├── GameJson
-│   ├── SavedGame
-│   └── GameSummary
-├── settings
-│   └── AppSettings
-└── ui
-    ├── main
-    ├── games
-    └── settings
-```
-
-依存方向は概ね次を目標にする。
-
-```text
-ui
- ↓
-game / kifu / engine / storage / settings
- ↓
-shogi
-```
-
-#### 移動状況
-
-- [x] application package を `org.androshogi` に確定する
-- [x] JNI 非依存の model / parser / data クラスを移動する
-  - [x] `game` (`GameRecord`, `GameAnalysis`, `PositionAnalysis`)
-  - [x] `storage` (`GameStore`, `GameJson`, `SavedGame`, `GameSummary`)
-  - [x] `settings` (`AppSettings`)
-  - [x] `kifu` (`KifParser`, `KifWriter`, `KifFormat`, `BodParser`, `MoveNotation`)
-- [x] engine 関連クラスを移動する
-- [x] UI クラスを画面単位に移動する
-- [x] JNI wrapper (`Board`, `Move`, `LegalMoveList`, `PseudoLegalMoveList` など) をまとめて移動する
-- [x] unit / instrumentation test も同じパッケージ構造へ移動する
-- [x] CI で build / JVM unit test / Android instrumentation test が成功することを確認する
-- [ ] 実機で起動・棋譜読み込み・検討を確認する
-
-JNI wrapper の package 変更では、`jni.cpp` の関数名にも完全修飾クラス名が埋め込まれる。
-現在は `Java_org_androshogi_shogi_Board_...` のような symbol を使用しているため、
-今後 JNI wrapper の package を変更する場合も Java 側の package と JNI symbol を同じコミットで更新する。
-
-過度な細分化はしない。まず「UI / engine / game / kifu / storage / settings / shogi」の境界が見えることを優先する。
-
-### 3. `MainActivity` の責務を減らす
-
-現在の `MainActivity` は View の初期化や画面遷移だけでなく、
-エンジン制御、自動解析ループ、棋譜と解析結果の状態、保存 ID、非同期 save / load、
-KIF の共有入出力まで同時に管理している。
-単にファイルが長いことよりも、複数の状態機械が同じ Activity の field と callback で結合していることが保守上の問題になる。
-
-v0.1.0 では全面的な MVVM 化や大規模な architecture 変更は行わず、
-**独立した状態管理・進行管理だけを壊しにくい単位で外へ出す**。
-UI の表示や Android lifecycle に直接関係する処理は `MainActivity` に残す。
-
-#### 3.1 自動解析ループを `AnalysisController` へ分離する
-
-最初に、現在 `MainActivity.AnalysisRun` が担当している自動解析の状態機械を独立させる。
-これは `MainActivity` 分割の中で最も効果が大きく、単体テストもしやすい部分なので最優先とする。
-
-- [x] `AnalysisController` を追加する
-  - 探索開始
-  - 現在局面から次局面への反復
-  - キャンセル / abandon
-  - 進捗 (`analyzed / total`)
-  - 正常終了 / 中断 / エラーの区別
-  - 正常終了した結果だけを対象局面へ保存する判断
-- [x] `AnalysisController` は `ProgressBar`、`Toast`、`BoardView` などの View を直接操作しない
-- [x] UI に必要な変化は listener / callback で `MainActivity` へ通知する
-  - 進捗更新
-  - 表示局面の移動要求
-  - 完了
-  - キャンセル
-  - エラー
-- [x] `AnalysisController` の JVM unit test を追加する
-  - 全局面を正常に解析できる
-  - 途中キャンセル時に partial result を保存しない
-  - エンジン開始失敗時に終了状態へ遷移する
-  - 最終局面で正しく完了する
-
-`EngineSession` 自体は既に process / search の責務を持っているため、
-v0.1.0 では新しい `EngineController` を先に導入しない。
-`AnalysisController` 分離後も `MainActivity` から `EngineSession` を直接扱う構造で十分かを改めて判断する。
-
-#### 3.2 ゲーム状態を `GameSession` にまとめる
-
-次に、現在ばらばらに保持している棋譜と解析結果、その保存上の identity を1つの状態として扱えるようにする。
-
-対象は概ね次の field。
-
-```text
-GameRecord record
-GameAnalysis analysis
-String gameId
-long gameCreatedAt
-```
-
-- [x] `GameSession` を導入し、上記状態をまとめる
-- [x] `GameSession` は Android View に依存させない
-- [x] 次のゲーム状態の整合性ルールを Activity から移す
-  - 新規ゲーム生成時の ID / createdAt 更新
-  - scratch game の判定
-  - 棋譜分岐時の解析結果 truncate
-  - 保存用 `SavedGame` snapshot の生成
-  - 保存済みゲームを読み込んだ際の状態置換
-- [x] `GameSession` の JVM unit test を追加する
-
-`GameSession` は永続化そのものを担当しない。
-`GameStore` は storage 層として維持し、ゲーム状態と disk I/O の責務を混ぜない。
-
-#### 3.3 非同期 save / load の調停を整理する
-
-現在 `MainActivity` は `ExecutorService` に加え、
-`gameLoadGeneration` と `initialGameLoadPending` を使って非同期 load とユーザー操作の競合も管理している。
-これは View の責務ではないため、`GameSession` 分離後に Activity から外す価値がある。
-
-- [x] save / load の非同期調停を小さな helper / coordinator に切り出すか検討する
-  - save の順序保証
-  - 古い load result の無効化
-  - startup load 完了前の誤保存防止
-  - game list を開く前に現在状態の保存を完了する処理
-- [ ] 既存の `GameStore` は低レベルの保存 API として維持する
-- [x] クラス追加の効果が小さいため、v0.1.0 では `MainActivity` に残す
-
-現状の save / load は単一の `ExecutorService`、load 世代番号、起動時の pending 状態で調停している。
-これらは Activity の終了判定と UI callback にも接しているため、v0.1.0 では分離せず維持する。
-保存順序・古い load の棄却・起動時の誤保存・一覧表示前の保存は引き続き回帰確認する。
-
-この段階は `AnalysisController` と `GameSession` より優先度を下げる。
-クラス数を増やすこと自体を目的にしない。
-
-#### 3.4 `MainActivity` に残す責務
-
-v0.1.0 公開時の `MainActivity` は、Android UI の入口として次を中心にする。
-
-- View binding / listener 登録
-- menu / dialog / Toast などの UI
-- Activity / Intent による画面遷移
-- `BoardView` / `EngineView` / move list / graph への表示反映
-- `AnalysisController` への start / cancel 指示
-- `GameSession` へのユーザー操作の反映
-- `EngineSession` の UI レベルの状態通知と手動検討
-- Android lifecycle (`onCreate`, `onResume`, `onStop`, `onDestroy`, `onNewIntent`)
-
-逆に、次は可能な限り Activity の外へ移す。
-
-```text
-自動解析ループの状態機械
-ゲーム状態の整合性管理
-保存 ID / createdAt の管理
-解析結果がどの局面に属するかの判断
-非同期 save / load の競合制御（効果が十分なら）
-```
-
-#### 3.5 v0.1.0 では後回しにするもの
-
-次は今回の `MainActivity` 整理の必須条件にしない。
-
-- ViewModel / retained state への全面移行
-- `configChanges` の撤廃
-- Foreground Service によるバックグラウンド解析
-- Kotlin / Jetpack Compose への移行
-- `EngineSession` を包む専用 controller の新設
-- KIF 入出力 UI の大規模分割
-
-KIF の file I/O / charset 処理は、後段の Storage Access Framework 対応と一緒に整理する方が二度手間が少ない。
-現在の `configChanges` による設定変更対応は暫定策として維持し、
-Controller / session 分離後に Activity lifecycle から engine state をさらに切り離す必要があるか判断する。
-
-#### 実装順
-
-- [x] `AnalysisController` のテストと切り出し
-- [x] `GameSession` の必要 API を整理し、テストとともに導入
-- [x] save / load 調停の分離が有効かを再評価し、必要なら切り出す
-- [x] `MainActivity` の不要 field / helper / callback を整理する
-- [ ] CI と実機で、手動検討・自動解析・キャンセル・棋譜切替・保存／復元を回帰確認する
-  - 自動解析・キャンセルは分割後の実機動作で問題なし（2026-09-24）。棋譜切替・保存／復元など、残る操作は引き続き確認する
-
-各段階は小さなコミットに分け、機能変更と構造変更を可能な限り混ぜない。
-
-### 4. エンジンと解析の公開前チェック
-
-- [x] 起動から `readyok` までの実機動作と所要時間を確認する（2026-09-23、初回 `readyok` まで 1,088 ms。実機での1回の測定値）
-- [ ] エンジン起動失敗時・予期せぬ終了時のメッセージを確認する
-  - [x] 予期せぬ終了時: debug APK の実機確認で、ポップアップと Logcat (`E/EngineSession`) の両方に「エンジンが予期せず終了しました」を確認（2026-09-23）
-  - [ ] 起動失敗時: 起動できない場合のメッセージを実機で確認する
-- [x] 長い棋譜解析でメモリが増え続けないことを確認する（2026-09-24、実機で166手を1手3秒で解析。提示された約5分間のエンジン TOTAL PSS は342,155–343,034 KBで持続増加なし。実機での1回の確認）
-- [x] Activity 終了後にやねうら王プロセスが残らないことを確認する（2026-09-24、解析後にアプリを終了し、`adb shell ps -A -o PID,PPID,ARGS` で `YaneuraOu_NNUE` を含むプロセスが残っていないことを実機確認）
-- [x] 評価関数非同梱版の `FV_SCALE` 既定値 `16` を実機ログで確認する（2026-09-26）。評価関数に合わせて設定できるようにする
-- [ ] 中断された探索結果は保存せず、正常終了した探索結果は時間・depth に関係なく最新結果で上書きする現在の方針を維持する
-  - [x] 解析中断時に既存結果の上書きが起こらないことを実機で確認（2026-09-24）
-  - [ ] 正常終了時に、解析時間・depth にかかわらず最新結果へ上書きされることを確認する
-
-### 5. v0.1.0 に含む機能
-
-v0.1.0 では大きなデータモデル変更を避け、既存機能につながるものを優先する。
-
-第一候補:
-
-- [x] Storage Access Framework で KIF ファイルを選んで開く
-- [x] KIF ファイルとして保存する（.kif は Shift_JIS、.kifu は UTF-8）
-- [x] Shift_JIS / UTF-8 の扱いを明示し、round-trip test を追加する
-
-v0.1.0 に含める棋譜形式の追加はここまでとし、KI2 / CSA、棋譜分岐などは後回しにする。
-
-### 6. v0.1.0 リリース判定
-
-- [ ] JVM unit test がすべて成功
-- [ ] API 34 emulator の instrumentation test が成功
-- [ ] arm64-v8a 実機で smoke test
-- [ ] 起動、盤面操作、KIF 読み込み、共有受け取り、手動検討、棋譜解析、保存／復元、ダークモードを確認
-- [ ] release APK の署名・versionCode・versionName を確認
-- [x] 再配布条件を確認できない水匠5の評価関数を含む旧バイナリを、評価関数を含まないやねうら王通常版に差し替える
-- [x] 利用者が取得した評価関数を設定画面から選択・配置し、`EvalDir` を設定できるようにする（CI と実機での動作確認は別項目）
-- [x] 評価関数設定後、初回起動・検討・解析とエラー表示を CI と実機で確認する（2026-09-27、実機での確認をユーザーが報告）
-- [x] KIF / KIFU の拡張子と保存先の記憶を実機で確認する（2026-09-27、ユーザー報告）
-- [x] Release の説明に評価関数の準備・設定、旧テスト版からの移行、ソースへのリンクを追加する
-- [x] orphan の単一開始コミットに切り替え、旧タグを持ち込まず `v0.1.0=1` から採番する
-- [ ] 新リポジトリにリリース署名用の Actions Secrets を設定する
-- [ ] `v0.1.0-rc1` を作り実機確認
-- [ ] `v0.1.0` を公開
-
----
-
-## v0.2.0 以降の候補
-
-次の項目は重要だが、v0.1.0 の release blocker にはしない。
-
-- Activity 再生成に耐える ViewModel / retained state への移行
-- Foreground Service によるバックグラウンド棋譜解析
-- KIF の開始日時、ヘッダコメント、終局結果を含む忠実な round-trip
-- KI2 / CSA の入出力
-- コメントの表示・編集
-- 棋譜分岐
-- 読み筋の盤上再生
-- 常時検討モード
-- 詰み探索
-- 座標変換の共通化
-- エンジンバイナリの再現可能なビルド手順とバージョン固定
-- 大容量バイナリの管理方法の見直し
-- Kotlin / Jetpack Compose の段階的導入（必要になった場合のみ）
-
-特に棋譜分岐は `GameRecord` の線形構造を変えるため、独立した設計タスクとして扱う。
-
----
-
-## 開発上の原則
-
-- `dev` で小さな単位に変更し、CI が通る状態を保つ
-- correctness / data loss / crash を機能追加より優先する
-- JNI resource は `finalize()` に頼らず明示的に解放する
-- disk I/O と process launch は UI thread で行わない
-- stopped search と normally completed search を区別する
-- UI 表示の都合で model / parser に Android dependency を持ち込まない
-- JNI wrapper の package 変更は JNI symbol と必ず同時に行う
-- 既知の不具合は [KNOWN_ISSUES.md](KNOWN_ISSUES.md) に追加し、解消したら履歴を残し続けず Git history に任せる
+# AndroShogi ロードマップ
+
+機能の実装状況とリリースに向けた残作業を管理します。
+使い方は [README](../README.md)、内部設計・ビルド・テスト・公開手順は
+[CONTRIBUTION.md](CONTRIBUTION.md)、確認された不具合は [KNOWN_ISSUES.md](KNOWN_ISSUES.md) を参照してください。
+
+## 現在地（2026-10-04）
+
+v0.1.0 は2026-09-30に公開済みです。
+**v0.2.0 の予定機能は `dev` に実装済みで、リリース準備に進みます。**
+追加機能は次のリリースへ回し、最終版の動作確認と公開準備を優先します。
+v0.2.0 のタグ作成・公開はまだ行っていません。
+
+## v0.2.0 に含める変更
+
+| 項目 | 実装済みの内容 |
+| --- | --- |
+| 棋譜の分岐 | 別の手順の追加・選択、本譜の分岐元への復帰、分岐点の複数矢印 |
+| 棋譜の保存・復元 | 分岐全体と局面ごとの解析結果を保存し、v0.1.0 の保存済み棋譜を読み込む |
+| コメント | 各手のコメントの閲覧・コピー、複数行と長文の表示、KIF のコメント・消費時間の入出力 |
+| 解析結果の KIF 出力 | 保存時に出力の有無を選び、先手基準の評価値・探索深さ・全候補の読み筋をコメントへ追記 |
+| エンジン切り替え | HalfKP 256×2-32-32 / 512×2-8-64 / 768×2-16-64 に対応し、評価関数と FV_SCALE を構造ごとに保持 |
+| 棋譜解析の設定 | 開始時に秒数と候補数（MultiPV、1〜5）を指定し、手動検討とは別に保持 |
+| 表示・操作 | 読み筋を最大10手表示、コメントタブ、先後の名前記号、メニューのグループ化とスクロール |
+| 開発・配布基盤 | ビルド環境の更新、手動ビルドの Draft Release 化、回帰テストの追加 |
+
+KIF は選択中の一本の手順だけを扱います。分岐の高度な編集や外部形式での保存は今回の範囲に含めません。
+解析コメントは追記のみで、既存コメントの検出・置換・重複除去は行いません。
+
+## 確認済みの事項
+
+- [x] 基本的な分岐操作を実機で確認（利用者報告）
+- [x] ビルド環境更新後の主要動作を実機で確認（2026-10-01、利用者報告）
+- [x] Háo・振電3・AobaNNUE の動作を実機で確認（利用者報告）
+- [x] 解析結果の KIF コメント出力を含む APK ビルド・Unit Test・API 34 Android Test が成功
+  - [Android CI](https://github.com/tatsy/androshogi/actions/runs/37183658354)（2026-10-04、`586b478`）
+  - 出力の選択・キャンセル、候補順と評価値、既存コメントの保持、再読み込み後の追記、選択分岐との対応を確認
+- [x] ビルド環境更新後の署名済み APK 作成が成功
+  - [Release workflow](https://github.com/tatsy/androshogi/actions/runs/36852442048)（2026-10-01、`f5c6fe0`）
+  - 最終の v0.2.0 APK の確認とは別に扱う
+
+## v0.2.0 リリース前の残作業
+
+- [ ] 同梱エンジンの出典・ファイル名を第三者表記に反映し、アプリ内の表記も同期する
+  - 現在の THIRD_PARTY_NOTICES は旧7.5版の記載。現行の出典とビルド方法は CONTRIBUTION を参照
+- [ ] Release ワークフローの配布説明を、3構造の選択と構造ごとの FV_SCALE に合わせて更新する
+- [ ] 最終 APK で追加機能をまとめて実機確認する
+  - コメントの長文表示、複数行コメント・消費時間を含む KIF 保存／再読み込み、解析結果の出力オン／オフ
+  - 分岐点の矢印、本譜への復帰、分岐・棋譜を切り替えた後の表示と保存／復元
+  - エンジン切り替え後・アプリ再起動後の評価関数と設定保持、手動検討と棋譜解析の候補数
+  - 盤反転、先後の名前記号、メニューの表示とスクロール
+- [ ] エラー・中断・再解析・保存／復元の回帰確認を行う
+  - 評価関数未設定・エンジン起動失敗後も操作可能な状態へ戻る
+  - 正常終了した再解析では最新結果を保存し、中断した局面の既存結果を保持する
+  - 起動直後の操作、棋譜切替、解析中断後の再起動で棋譜や分岐が失われない
+- [ ] `dev` を PR で `main` に取り込み、最終コミットの CI を確認する
+- [ ] `v0.2.0-rc1` の署名・バージョン・ABI 別 APK を確認し、実機で動作確認する
+- [ ] `v0.2.0`（versionCode 2）を公開する
+
+未確認の項目は既知不具合を意味しません。確認中に不具合が見つかった場合は KNOWN_ISSUES に記録します。
+具体的な確認方法と公開手順は CONTRIBUTION にまとめています。
+
+## 次のリリース以降の候補
+
+以下は未実装の候補です。優先順位やリリース時期は未確定です。
+
+- 分岐の削除・本譜への昇格・読み筋からの追加、分岐を保持する外部形式の入出力
+- コメントの編集
+- KI2・CSA の入出力
+- KIF の開始日時・終局結果を含む情報の忠実な読み込みと保存
+- 読み筋の盤上再生、常時検討モード、詰み探索
+- バックグラウンドでの棋譜解析
+
+内部構造・依存関係・ビルドの保守候補は [CONTRIBUTION.md](CONTRIBUTION.md#保守候補) で管理します。
+
+## 公開済みリリース
+
+| バージョン | 公開日 | 内容 |
+| --- | --- | --- |
+| [v0.1.0](https://github.com/tatsy/androshogi/releases/tag/v0.1.0) | 2026-09-30 | 盤面操作、KIF 入出力、手動検討・棋譜解析、棋譜と解析結果の保存、外部評価関数の設定、ABI 別 APK 配布 |
+
+過去の実装手順・修正経緯は Git のコミット、Pull Request、Release を参照してください。

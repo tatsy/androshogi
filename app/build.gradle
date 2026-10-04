@@ -10,7 +10,6 @@ android {
         applicationId "org.androshogi"
         minSdk 29
         targetSdk 34
-        ndkVersion '27.2.12479018'
         // 公式ビルドは Actions がリリースタグから計算した値を渡す。
         versionCode = (project.findProperty('appVersionCode') ?: '1').toString().toInteger()
         // 設定画面が表示するバージョン。ワークフローが -PappVersionName で渡す
@@ -70,7 +69,7 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    packagingOptions {
+    packaging {
         jniLibs {
             useLegacyPackaging true
         }
@@ -82,7 +81,7 @@ android {
         }
     }
     ndkVersion '27.2.12479018'
-    buildToolsVersion '34.0.0'
+    buildToolsVersion '36.0.0'
 }
 
 dependencies {

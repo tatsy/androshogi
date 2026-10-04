@@ -6,6 +6,10 @@
     <string name="not_prom_label">不成</string>
     <string name="start_board">開始局面</string>
     <string name="end_board">終了局面</string>
+    <string name="select_branch">分岐を選択</string>
+    <string name="return_main_line">本譜に戻る</string>
+    <string name="branch_original_marker">（元の手順）</string>
+    <string name="branch_point_marker">（分岐あり）</string>
     <string name="menu_text">Menu</string>
     <string name="matta_text">待った</string>
     <string name="hint_text">検討</string>
@@ -18,6 +22,11 @@
     <string name="kifu_file_read_failed">KIF ファイルを読み込めませんでした</string>
     <string name="paste_kifu">棋譜を貼り付け</string>
     <string name="save_kifu">KIF ファイルを保存</string>
+    <string name="kifu_export_save">保存</string>
+    <string name="kifu_export_shift_jis">.kif（Shift_JIS）</string>
+    <string name="kifu_export_utf8">.kifu（UTF-8）</string>
+    <string name="kifu_include_analysis">解析結果をコメントに含める</string>
+    <string name="kifu_no_analysis">書き出す棋譜に保存済みの解析結果がありません</string>
     <string name="kifu_file_saved">KIF ファイルを保存しました</string>
     <string name="kifu_folder_title">KIF の保存先</string>
     <string name="kifu_folder_message">初回は「Documents」などに AndroShogi フォルダーを作成して選んでください。次回からこのフォルダーを最初に表示するよう指定します。</string>
@@ -36,12 +45,13 @@
     <string name="engine_starting">エンジンを起動しています</string>
     <string name="engine_busy">エンジンが動作中です</string>
     <string name="analysis_started">棋譜解析を開始します</string>
+    <string name="analysis_multipv_title">同時に探索する候補の数（MultiPV）</string>
     <string name="analysis_finished">棋譜解析が終了しました</string>
     <string name="kifu_loaded">棋譜データを読み込みました</string>
     <string name="kifu_parse_error_title">棋譜を読み込めませんでした</string>
     <string name="engine_unavailable">エンジンを利用できません</string>
     <string name="engine_eval_missing_title">評価関数がありません</string>
-    <string name="engine_eval_missing_message">nn.bin がないため、検討を開始できません。設定の「評価関数ファイル」から nn.bin を選択してください。</string>
+    <string name="engine_eval_missing_message">選択中のエンジン用の nn.bin がないため、検討を開始できません。設定で「エンジンの種類」を確認し、「評価関数ファイル」から対応する nn.bin を選択してください。</string>
     <string name="analysis_progress_title">棋譜解析中</string>
     <string name="analysis_progress_format">%1$d / %2$d 局面</string>
     <string name="analysis_cancelled">棋譜解析を中止しました</string>
@@ -49,6 +59,8 @@
     <string name="analysis_stored_marker">（解析済み）</string>
 
     <!-- 情報エリア -->
+    <string name="tab_comment">コメント</string>
+    <string name="comment_empty">コメントはありません</string>
     <string name="tab_reading">読み筋</string>
     <string name="tab_record">棋譜</string>
     <string name="tab_graph">グラフ</string>
@@ -73,9 +85,10 @@
 
     <!-- 設定 -->
     <string name="pref_category_engine">エンジン</string>
+    <string name="pref_engine_kind_title">エンジンの種類</string>
     <string name="pref_eval_file_title">評価関数ファイル（nn.bin）</string>
-    <string name="pref_eval_file_missing">未設定。タップして端末から選択</string>
-    <string name="pref_eval_file_ready">設定済み。タップして変更</string>
+    <string name="pref_eval_file_missing">選択中のエンジン用の評価関数が未設定。タップして端末から選択</string>
+    <string name="pref_eval_file_ready">選択中のエンジン用の評価関数は設定済み。タップして変更</string>
     <string name="pref_eval_file_importing">評価関数を取り込んでいます…</string>
     <string name="pref_eval_file_imported">評価関数を取り込みました</string>
     <string name="pref_eval_file_failed_title">評価関数を取り込めませんでした</string>
@@ -147,15 +160,27 @@
         <item>128</item>
         <item>256</item>
     </string-array>
+    <string-array name="engine_kind_entries">
+        <item>HalfKP 256×2-32-32（Háo・水匠5など）</item>
+        <item>HalfKP 512×2-8-64（振電3など）</item>
+        <item>HalfKP 768×2-16-64（AobaNNUEなど）</item>
+    </string-array>
+    <string-array name="engine_kind_values">
+        <item>halfkp_256x2_32_32</item>
+        <item>halfkp_512x2_8_64</item>
+        <item>halfkp_768x2_16_64</item>
+    </string-array>
     <string-array name="fv_scale_entries">
         <item>16（やねうら王の標準）</item>
         <item>20（Háo向け）</item>
         <item>24（水匠5向け）</item>
+        <item>40（512・768構造の初期値）</item>
     </string-array>
     <string-array name="fv_scale_values">
         <item>16</item>
         <item>20</item>
         <item>24</item>
+        <item>40</item>
     </string-array>
     <string-array name="theme_entries">
         <item>システムに従う</item>

@@ -2,10 +2,7 @@ package org.androshogi.storage;
 
 import org.androshogi.engine.EngineInfo;
 import org.androshogi.game.GameAnalysis;
-import org.androshogi.game.GameRecord;
-import org.androshogi.game.PositionAnalysis;
-
-import org.androshogi.game.GameAnalysis;
+import org.androshogi.game.GameNode;
 import org.androshogi.game.GameRecord;
 import org.androshogi.game.PositionAnalysis;
 
@@ -15,22 +12,15 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
- * JSON form of a {@link SavedGame}.
- *
- * <p>Moves are stored as the app's own move codes, which is lossless and
- * needs no native board to read back; KIF export is a separate, later
- * feature. Analysis entries keep the engine's info lines as text, rebuilt
- * with {@link EngineInfo#toLine()} and parsed again on load, so the reading
- * shown after a restart is the one the engine gave.
- *
- * <p>Free of Android dependencies apart from {@code org.json}, which the
- * platform provides, so it is unit tested on the host JVM.
+ * Lossless app storage, independent of KIF export and the native board.
+ * Format 2 stores the whole position tree and results keyed by node ID.
+ * The format 1 linear records written by v0.1.0 are migrated on read.
  */
 public final class GameJson {
-    /** Bump when the layout changes in a way old readers cannot take. */
-    public static final int FORMAT = 1;
+    public static final int FORMAT = 2;
 
     private GameJson() {}
 
@@ -40,39 +30,35 @@ public final class GameJson {
         root.put("id", game.id);
         root.put("createdAt", game.createdAt);
         root.put("updatedAt", game.updatedAt);
-
         GameRecord record = game.record;
         root.put("black", record.blackName());
         root.put("white", record.whiteName());
         root.put("startSfen", record.startSfen());
-        root.put("currentPly", record.currentPly());
-        JSONArray moves = new JSONArray();
-        JSONArray times = new JSONArray();
-        JSONArray comments = new JSONArray();
-        for (int i = 0; i < record.length(); i++) {
-            moves.put(record.move(i));
-            times.put(record.timeSeconds(i));
-            String comment = record.comment(i);
-            comments.put(comment == null ? JSONObject.NULL : comment);
+        root.put("currentNodeId", record.currentNodeId());
+        root.put("nextNodeId", record.nextNodeId());
+        JSONArray nodes = new JSONArray();
+        for (GameNode node : record.nodes()) {
+            JSONObject entry = new JSONObject();
+            entry.put("id", node.id());
+            entry.put("parentId", nullable(node.parentId()));
+            entry.put("move", node.move());
+            entry.put("seconds", node.timeSeconds());
+            entry.put("comment", nullable(node.comment()));
+            entry.put("mainChildId", nullable(node.mainChildId()));
+            entry.put("selectedChildId", nullable(record.selectedChildId(node.id())));
+            nodes.put(entry);
         }
-        root.put("moves", moves);
-        root.put("times", times);
-        root.put("comments", comments);
+        root.put("nodes", nodes);
 
         JSONArray analysis = new JSONArray();
-        for (int ply = 0; ply < game.analysis.plies(); ply++) {
-            PositionAnalysis a = game.analysis.get(ply);
-            if (a == null) {
-                continue;
-            }
+        for (Map.Entry<Long, PositionAnalysis> result : game.analysis.entries().entrySet()) {
+            PositionAnalysis a = result.getValue();
             JSONObject entry = new JSONObject();
-            entry.put("ply", ply);
+            entry.put("nodeId", result.getKey());
             entry.put("sfen", a.sfen());
-            entry.put("bestMove", a.bestMoveUsi() == null ? JSONObject.NULL : a.bestMoveUsi());
+            entry.put("bestMove", nullable(a.bestMoveUsi()));
             JSONArray infos = new JSONArray();
-            for (EngineInfo info : a.infos()) {
-                infos.put(info.toLine());
-            }
+            for (EngineInfo info : a.infos()) infos.put(info.toLine());
             entry.put("infos", infos);
             analysis.put(entry);
         }
@@ -80,32 +66,83 @@ public final class GameJson {
         return root.toString(2);
     }
 
-    /**
-     * The list entry for a saved game: names, counts and dates, without
-     * rebuilding the record or the analysis.
-     *
-     * @throws JSONException when the text is not a saved game this version can read
-     */
+    private static Object nullable(Object value) { return value == null ? JSONObject.NULL : value; }
+
+    /** Names, selected route length, analysis count and dates, without parsing engine info lines. */
     public static GameSummary readSummary(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
-        int format = root.optInt("format", 0);
-        if (format != FORMAT) {
-            throw new JSONException("unsupported saved game format " + format);
-        }
+        int format = checkFormat(root);
+        GameRecord record = readRecord(root, format);
         JSONArray analysis = root.optJSONArray("analysis");
-        return new GameSummary(root.getString("id"), root.optString("black", ""), root.optString("white", ""),
-                root.getJSONArray("moves").length(), analysis == null ? 0 : analysis.length(),
+        return new GameSummary(root.getString("id"), record.blackName(), record.whiteName(),
+                record.length(), analysis == null ? 0 : analysis.length(),
                 root.optLong("createdAt", 0), root.optLong("updatedAt", 0));
     }
 
-    /** @throws JSONException when the text is not a saved game this version can read */
     public static SavedGame read(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
+        int format = checkFormat(root);
+        GameRecord record = readRecord(root, format);
+        GameAnalysis analysis = new GameAnalysis(record);
+        JSONArray entries = root.optJSONArray("analysis");
+        if (entries != null) {
+            for (int i = 0; i < entries.length(); i++) {
+                JSONObject entry = entries.getJSONObject(i);
+                long nodeId;
+                if (format == 1) {
+                    int ply = entry.getInt("ply");
+                    if (ply < 0 || ply > record.length()) continue;
+                    nodeId = record.nodeIdAtPly(ply);
+                } else {
+                    nodeId = entry.getLong("nodeId");
+                    if (record.node(nodeId) == null) continue;
+                }
+                List<EngineInfo> infos = new ArrayList<>();
+                JSONArray lines = entry.optJSONArray("infos");
+                for (int j = 0; lines != null && j < lines.length(); j++) {
+                    EngineInfo info = EngineInfo.parse(lines.getString(j));
+                    if (info != null) infos.add(info);
+                }
+                String bestMove = entry.isNull("bestMove") ? null : entry.getString("bestMove");
+                analysis.putByNode(nodeId, PositionAnalysis.from(entry.getString("sfen"), infos, bestMove));
+            }
+        }
+        return new SavedGame(root.getString("id"), root.optLong("createdAt", 0),
+                root.optLong("updatedAt", 0), record, analysis);
+    }
+
+    private static int checkFormat(JSONObject root) throws JSONException {
         int format = root.optInt("format", 0);
-        if (format != FORMAT) {
+        if (format != 1 && format != FORMAT) {
             throw new JSONException("unsupported saved game format " + format);
         }
+        return format;
+    }
 
+    private static GameRecord readRecord(JSONObject root, int format) throws JSONException {
+        if (format == 1) return readLinearRecord(root);
+        JSONArray array = root.getJSONArray("nodes");
+        List<GameRecord.NodeData> nodes = new ArrayList<>();
+        for (int i = 0; i < array.length(); i++) {
+            JSONObject entry = array.getJSONObject(i);
+            nodes.add(new GameRecord.NodeData(entry.getLong("id"), optionalId(entry, "parentId"),
+                    entry.getInt("move"), entry.optInt("seconds", 0),
+                    entry.isNull("comment") ? null : entry.getString("comment"),
+                    optionalId(entry, "mainChildId"), optionalId(entry, "selectedChildId")));
+        }
+        try {
+            return GameRecord.fromTree(root.getString("startSfen"), root.optString("black", ""),
+                    root.optString("white", ""), nodes, root.getLong("currentNodeId"), root.getLong("nextNodeId"));
+        } catch (IllegalArgumentException e) {
+            throw new JSONException("invalid saved game tree: " + e.getMessage());
+        }
+    }
+
+    private static Long optionalId(JSONObject entry, String key) throws JSONException {
+        return entry.isNull(key) ? null : entry.getLong(key);
+    }
+
+    private static GameRecord readLinearRecord(JSONObject root) throws JSONException {
         JSONArray moveArray = root.getJSONArray("moves");
         JSONArray timeArray = root.optJSONArray("times");
         JSONArray commentArray = root.optJSONArray("comments");
@@ -121,30 +158,6 @@ public final class GameJson {
         GameRecord record = new GameRecord(root.getString("startSfen"), moves, times, comments,
                 root.optString("black", ""), root.optString("white", ""));
         record.seek(root.optInt("currentPly", record.length()));
-
-        GameAnalysis analysis = new GameAnalysis();
-        JSONArray entries = root.optJSONArray("analysis");
-        if (entries != null) {
-            for (int i = 0; i < entries.length(); i++) {
-                JSONObject entry = entries.getJSONObject(i);
-                int ply = entry.getInt("ply");
-                if (ply < 0 || ply > record.length()) {
-                    continue;
-                }
-                List<EngineInfo> infos = new ArrayList<>();
-                JSONArray lines = entry.optJSONArray("infos");
-                for (int j = 0; lines != null && j < lines.length(); j++) {
-                    EngineInfo info = EngineInfo.parse(lines.getString(j));
-                    if (info != null) {
-                        infos.add(info);
-                    }
-                }
-                String bestMove = entry.isNull("bestMove") ? null : entry.getString("bestMove");
-                analysis.put(ply, PositionAnalysis.from(entry.getString("sfen"), infos, bestMove));
-            }
-        }
-
-        return new SavedGame(root.getString("id"), root.optLong("createdAt", 0),
-                root.optLong("updatedAt", 0), record, analysis);
+        return record;
     }
 }

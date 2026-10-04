@@ -20,7 +20,7 @@ import java.util.Locale;
 /** Shows the engine's search statistics and its candidate variations. */
 public class EngineView extends AppCompatTextView implements EngineUpdateListener {
     /** Number of moves of each variation that is spelled out. */
-    private static final int PV_MOVES_SHOWN = 5;
+    private static final int PV_MOVES_SHOWN = 10;
 
     /** True: scores from black's point of view. False: from the side to move, as the engine reports. */
     private boolean scoreFromBlack = true;

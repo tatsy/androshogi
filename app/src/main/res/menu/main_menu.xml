@@ -2,14 +2,18 @@
 <menu
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 棋譜 -->
-    <group android:id="@+id/group_record">
+    <!-- 棋譜の管理 -->
+    <group android:id="@+id/group_record" android:orderInCategory="0">
         <item
             android:id="@+id/new_game"
             android:title="@string/new_game"/>
         <item
             android:id="@+id/game_list"
             android:title="@string/game_list"/>
+    </group>
+
+    <!-- KIF の入出力: 読み込みから保存・共有の順 -->
+    <group android:id="@+id/group_kif" android:orderInCategory="10">
         <item
             android:id="@+id/open_kifu"
             android:title="@string/open_kifu"/>
@@ -28,23 +32,29 @@
     </group>
 
     <!-- 局面。盤の反転はボタンにあるのでここには置かない -->
-    <group android:id="@+id/group_position">
+    <group android:id="@+id/group_position" android:orderInCategory="20">
         <item
             android:id="@+id/start_board"
             android:title="@string/start_board"/>
         <item
             android:id="@+id/end_board"
             android:title="@string/end_board"/>
+        <item
+            android:id="@+id/select_branch"
+            android:title="@string/select_branch"/>
+        <item
+            android:id="@+id/return_main_line"
+            android:title="@string/return_main_line"/>
     </group>
 
     <!-- 検討 -->
-    <group android:id="@+id/group_analysis">
+    <group android:id="@+id/group_analysis" android:orderInCategory="30">
         <item
             android:id="@+id/auto_analyze"
             android:title="@string/auto_analyze"/>
     </group>
 
-    <group android:id="@+id/group_app">
+    <group android:id="@+id/group_app" android:orderInCategory="40">
         <item
             android:id="@+id/action_settings"
             android:title="@string/setting"/>

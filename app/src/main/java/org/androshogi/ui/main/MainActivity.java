@@ -9,12 +9,14 @@ import org.androshogi.ui.games.GameListActivity;
 import org.androshogi.engine.EngineInfo;
 import org.androshogi.engine.AnalysisController;
 import org.androshogi.engine.EngineSession;
+import org.androshogi.engine.EngineKind;
 import org.androshogi.engine.EvaluationFileStore;
 import org.androshogi.engine.EngineUpdateListener;
 
 import org.androshogi.kifu.KifParser;
 import org.androshogi.kifu.KifTextCodec;
 import org.androshogi.kifu.KifWriter;
+import org.androshogi.kifu.MoveNotation;
 
 import org.androshogi.settings.AppSettings;
 import org.androshogi.ui.settings.SettingsActivity;
@@ -23,6 +25,7 @@ import org.androshogi.storage.GameStore;
 import org.androshogi.storage.SavedGame;
 
 import org.androshogi.game.GameRecord;
+import org.androshogi.game.GameNode;
 import org.androshogi.game.GameSession;
 import org.androshogi.game.PositionAnalysis;
 
@@ -83,7 +86,6 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String AI_NAME = "YaneuraOu_NNUE";
 
     private BoardView boardView;
     private TextView blackInfoView;
@@ -94,6 +96,8 @@ public class MainActivity extends AppCompatActivity {
     @Nullable
     private PositionAnalysis shownEvaluation;
     private EngineView engineView;
+    private View commentPanel;
+    private TextView commentView;
     private RecyclerView moveListView;
     private MoveListAdapter moveListAdapter;
     private WinRateGraphView graphView;
@@ -103,6 +107,8 @@ public class MainActivity extends AppCompatActivity {
     private EngineSession engine;
     /** Revision of the evaluation data loaded by this process. */
     private long engineEvaluationRevision;
+    /** Architecture loaded by the current process; settings can change while it runs. */
+    private EngineKind engineKind;
 
     /** Non-null while a game analysis is running. */
     @Nullable
@@ -244,17 +250,17 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onRecordTruncated(int fromPly) {
+            public void onRecordChanged() {
                 // A user edit wins over any game file that is still being loaded.
                 invalidatePendingGameLoad();
-                // Those positions left the record, so their results are meaningless now.
-                game.truncateAnalysis(fromPly);
                 moveListAdapter.recordChanged();
                 graphView.invalidate();
             }
         });
 
         engineView = findViewById(R.id.engine_view);
+        commentPanel = findViewById(R.id.comment_panel);
+        commentView = findViewById(R.id.comment_view);
 
         // Move list; tapping a row jumps to that position.
         moveListView = findViewById(R.id.move_list_view);
@@ -315,7 +321,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        refreshEngineForEvaluation();
+        refreshEngineConfiguration();
         // The settings screen may have changed anything; re-apply it all. Values
         // the engine already holds are dropped by EngineSession, so this is cheap.
         applySettings();
@@ -328,9 +334,10 @@ public class MainActivity extends AppCompatActivity {
     /** Creates one engine process. A closed session is discarded rather than restarted. */
     private void startEngineSession() {
         engineEvaluationRevision = AppSettings.evaluationRevision(this);
+        engineKind = AppSettings.engineKind(this);
         String abi = Build.SUPPORTED_ABIS[0];
         final EngineSession session =
-                new EngineSession(AI_NAME + "_" + abi, getApplicationInfo().nativeLibraryDir);
+                new EngineSession(engineKind.executableName(abi), getApplicationInfo().nativeLibraryDir);
         engine = session;
 
         session.addEngineUpdateListener((board, infos) -> {
@@ -381,12 +388,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private File evaluationFile() {
-        return EvaluationFileStore.file(this);
+        return EvaluationFileStore.file(this, engineKind);
     }
 
-    /** The imported file is replaced atomically; a running engine still has the old model. */
-    private void refreshEngineForEvaluation() {
-        if (engineEvaluationRevision == AppSettings.evaluationRevision(this)) {
+    /** Restart when either the architecture or the installed model changes. */
+    private void refreshEngineConfiguration() {
+        if (engineKind == AppSettings.engineKind(this)
+                && engineEvaluationRevision == AppSettings.evaluationRevision(this)) {
             return;
         }
         if (analysisRun != null) {
@@ -414,6 +422,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyEngineSettings(EngineSession session) {
+        session.setOption("ConsiderationMode", "true");
         session.setOption("MultiPV", String.valueOf(AppSettings.multiPv(this)));
         session.setOption("Threads", String.valueOf(AppSettings.threads(this)));
         session.setOption("USI_Hash", String.valueOf(AppSettings.hashMb(this)));
@@ -524,6 +533,11 @@ public class MainActivity extends AppCompatActivity {
     private void showPopupMenu(View view) {
         PopupMenu popupMenu = new PopupMenu(this, view);
         popupMenu.inflate(R.menu.main_menu);
+        GameRecord record = game.record();
+        popupMenu.getMenu().findItem(R.id.select_branch).setEnabled(analysisRun == null
+                && record.node(record.currentNodeId()).childIds().size() > 1);
+        popupMenu.getMenu().findItem(R.id.return_main_line).setEnabled(analysisRun == null
+                && !record.isMainLineSelected());
         MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
@@ -538,6 +552,16 @@ public class MainActivity extends AppCompatActivity {
             } else if (itemId == R.id.end_board) {
                 if (requireIdleNavigation()) {
                     boardView.setEndBoard();
+                }
+                return true;
+            } else if (itemId == R.id.select_branch) {
+                showBranchDialog();
+                return true;
+            } else if (itemId == R.id.return_main_line) {
+                if (requireIdleNavigation()) {
+                    invalidatePendingGameLoad();
+                    game.record().selectMainLine();
+                    showRecord();
                 }
                 return true;
             } else if (itemId == R.id.auto_analyze) {
@@ -586,6 +610,45 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
         popupMenu.show();
+    }
+
+    /** Chooses the next move from the currently displayed branch point. */
+    private void showBranchDialog() {
+        if (!requireIdleNavigation()) return;
+        GameRecord record = game.record();
+        GameNode parent = record.node(record.currentNodeId());
+        List<Long> children = parent.childIds();
+        if (children.size() < 2) return;
+        String[] labels = new String[children.size()];
+        int selected = -1;
+        Board board = new Board(boardView.getSFEN());
+        try {
+            for (int i = 0; i < children.size(); i++) {
+                long id = children.get(i);
+                labels[i] = (board.turn() == Shogi.BLACK ? "☗" : "☖")
+                        + MoveNotation.describe(board, record.node(id).move(), record.lastMove());
+                if (Long.valueOf(id).equals(parent.mainChildId())) {
+                    labels[i] += getString(R.string.branch_original_marker);
+                }
+                if (Long.valueOf(id).equals(record.selectedChildId(parent.id()))) selected = i;
+            }
+        } finally {
+            board.cleanup();
+        }
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.select_branch)
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    if (game.record() == record && record.currentNodeId() == parent.id()
+                            && requireIdleNavigation()) {
+                        invalidatePendingGameLoad();
+                        record.selectNode(children.get(which));
+                        // Even a switch at the same ply needs a fresh native board.
+                        showRecord();
+                    }
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     private void flipBoard() {
@@ -673,11 +736,13 @@ public class MainActivity extends AppCompatActivity {
         refresh();
     }
 
-    /** Shows the reading, the move list or the graph below the board, whichever tab is checked. */
+    /** Shows the selected information panel below the board. */
     private void showInfoTab(int tabId) {
+        boolean showComment = tabId == R.id.tab_comment;
         boolean showMoves = tabId == R.id.tab_record;
         boolean showGraph = tabId == R.id.tab_graph;
-        engineView.setVisibility(!showMoves && !showGraph ? View.VISIBLE : View.GONE);
+        commentPanel.setVisibility(showComment ? View.VISIBLE : View.GONE);
+        engineView.setVisibility(tabId == R.id.tab_reading ? View.VISIBLE : View.GONE);
         moveListView.setVisibility(showMoves ? View.VISIBLE : View.GONE);
         graphView.setVisibility(showGraph ? View.VISIBLE : View.GONE);
         if (showMoves) {
@@ -704,13 +769,15 @@ public class MainActivity extends AppCompatActivity {
         // button from the completion callback rather than only on tap.
         final int ply = game.record().currentPly();
         final GameRecord searched = game.record();
+        final long nodeId = searched.nodeIdAtPly(ply);
         final EngineSession searchedWith = engine;
+        searchedWith.setOption("MultiPV", String.valueOf(AppSettings.multiPv(this)));
         boolean started = searchedWith.startSearch(boardView.getSFEN(), AppSettings.thinkTimeMs(this),
                 result -> {
                     if (engine != searchedWith) {
                         return; // The evaluation file was replaced during this search.
                     }
-                    storeResult(searched, ply, result);
+                    storeResult(searched, ply, nodeId, result);
                     setHintButtonRunning(false);
                 });
         if (!started) {
@@ -720,7 +787,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Returns true if a new search may be started, showing why if it may not. */
     private boolean requireReadyEngine() {
-        refreshEngineForEvaluation();
+        refreshEngineConfiguration();
         if (!evaluationFile().isFile()) {
             showMissingEvaluationDialog();
             return false;
@@ -779,9 +846,19 @@ public class MainActivity extends AppCompatActivity {
         showStoredAnalysis();
         moveListAdapter.setCurrentPly(game.record().currentPly());
         graphView.setCurrentPly(game.record().currentPly());
+        showCurrentComment();
         if (moveListView.getVisibility() == View.VISIBLE) {
             moveListView.scrollToPosition(game.record().currentPly());
         }
+    }
+
+    /** Comments belong to position nodes, including positions on a selected variation. */
+    private void showCurrentComment() {
+        GameRecord record = game.record();
+        String comment = record.node(record.currentNodeId()).comment();
+        commentView.setText(comment == null || comment.trim().isEmpty()
+                ? getString(R.string.comment_empty) : comment);
+        commentPanel.scrollTo(0, 0);
     }
 
     /**
@@ -789,16 +866,16 @@ public class MainActivity extends AppCompatActivity {
      * record has been replaced or changed at that ply in the meantime.
      *
      * <p>A manual search can outlive a user move that branches the record:
-     * the ply still exists, but now holds another position, so the searched
-     * SFEN is compared with the record's position at {@code ply} before it
-     * is stored and shown in the move list.
+     * the ply may still exist with a different node. Check both the captured
+     * node ID and SFEN before storing or displaying the result.
      */
-    private void storeResult(GameRecord searched, int ply, EngineSession.SearchResult result) {
+    private void storeResult(GameRecord searched, int ply, long nodeId, EngineSession.SearchResult result) {
         // A user-requested stop is not a completed analysis. Keep any previous result intact.
-        if (!result.completedNormally()
+        if (result == null || !result.completedNormally()
                 || searched != game.record()
-                || ply > game.record().length()
-                || !game.storeResult(searched, ply, sfenAtPly(ply), result)) {
+                || ply < 0 || ply > game.record().length()
+                || game.record().nodeIdAtPly(ply) != nodeId
+                || !game.storeResult(searched, ply, nodeId, sfenAtPly(ply), result)) {
             return;
         }
         // The session replaces the previous completed result regardless of time or depth.
@@ -872,7 +949,7 @@ public class MainActivity extends AppCompatActivity {
         return KifWriter.write(game.record(), game.createdAt());
     }
 
-    /** Lets the user choose the on-disk encoding explicitly before opening the document picker. */
+    /** Chooses encoding and optional analysis comments before opening the document picker. */
     private void saveKifFile() {
         if (!requireIdleNavigation()) {
             return;
@@ -881,18 +958,20 @@ public class MainActivity extends AppCompatActivity {
         if (text == null) {
             return;
         }
-        new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Androshogi_AlertDialog)
-                .setTitle(R.string.save_kifu)
-                .setItems(R.array.kifu_file_types, (dialog, choice) -> {
-                    pendingKifExport = text;
-                    pendingKifFormat = choice;
-                    if (AppSettings.kifSaveFolder(this) == null) {
-                        promptForKifFolder();
-                    } else {
-                        launchPendingKifExport();
-                    }
-                })
-                .show();
+        boolean hasAnalysis = false;
+        for (int ply = 0; ply <= game.record().length(); ply++) {
+            if (game.analysis().has(ply)) { hasAnalysis = true; break; }
+        }
+        KifExportDialog.show(this, hasAnalysis, (choice, includeAnalysis) -> {
+            pendingKifExport = includeAnalysis
+                    ? KifWriter.write(game.record(), game.createdAt(), game.analysis()) : text;
+            pendingKifFormat = choice;
+            if (AppSettings.kifSaveFolder(this) == null) {
+                promptForKifFolder();
+            } else {
+                launchPendingKifExport();
+            }
+        });
     }
 
     private void promptForKifFolder() {
@@ -1086,19 +1165,21 @@ public class MainActivity extends AppCompatActivity {
         saveGame();
         invalidatePendingGameLoad();
         game.startNew(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
-                parser.getComments(), parser.blackName(), parser.whiteName()), false);
+                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment()), false);
         showRecord();
         Toast.makeText(this, R.string.kifu_loaded, Toast.LENGTH_SHORT).show();
     }
 
     /** Puts the names and the evaluation into the player rows, following the board's orientation. */
     public void refresh() {
+        String blackName = "☗" + game.record().blackName();
+        String whiteName = "☖" + game.record().whiteName();
         if (boardView.isUpsideDown()) {
-            whiteInfoView.setText(game.record().blackName());
-            blackInfoView.setText(game.record().whiteName());
+            whiteInfoView.setText(blackName);
+            blackInfoView.setText(whiteName);
         } else {
-            whiteInfoView.setText(game.record().whiteName());
-            blackInfoView.setText(game.record().blackName());
+            whiteInfoView.setText(whiteName);
+            blackInfoView.setText(blackName);
         }
         showEvaluation(shownEvaluation);
     }
@@ -1128,7 +1209,7 @@ public class MainActivity extends AppCompatActivity {
         if (!requireReadyEngine()) {
             return;
         }
-        showParameterDialog(this, (time, start) -> {
+        showParameterDialog(this, (time, multiPv, start) -> {
             // 開始局面から検討なら局面を最初に戻す
             if (start == ConsiderStart.BEGINNING) {
                 boardView.setStartBoard();
@@ -1136,17 +1217,20 @@ public class MainActivity extends AppCompatActivity {
 
             Toast.makeText(this, R.string.analysis_started, Toast.LENGTH_SHORT).show();
             Log.d(TAG, "自動検討時間: " + time + "ms");
-            startAutoAnalysis(time);
+            startAutoAnalysis(time, multiPv);
         });
     }
 
     /** Connects the view and engine to the UI-independent analysis state machine. */
-    private void startAutoAnalysis(int timePerMoveMs) {
+    private void startAutoAnalysis(int timePerMoveMs, int multiPv) {
         final GameRecord searchedRecord = game.record();
         final EngineSession session = engine;
         AnalysisController.Searcher searcher = new AnalysisController.Searcher() {
             @Override
             public boolean start(String sfen, int timeMs, EngineSession.SearchCallback callback) {
+                // Returning from Settings may have queued the manual value. Pin each
+                // position to this run's choice before EngineSession sends its options.
+                session.setOption("MultiPV", String.valueOf(multiPv));
                 return session.startSearch(sfen, timeMs, callback);
             }
 
@@ -1186,8 +1270,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onResult(int ply, EngineSession.SearchResult result) {
-                storeResult(searchedRecord, ply, result);
+            public void onResult(int ply, long nodeId, EngineSession.SearchResult result) {
+                storeResult(searchedRecord, ply, nodeId, result);
             }
 
             @Override
@@ -1198,6 +1282,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFinished(AnalysisController.Status status) {
                 analysisRun = null;
+                if (engine == session) {
+                    session.setOption("MultiPV", String.valueOf(AppSettings.multiPv(MainActivity.this)));
+                }
                 analysisPanel.setVisibility(View.GONE);
                 boardView.setInputLocked(false);
                 // Preserve the finished positions even after cancellation or an engine error.
@@ -1221,6 +1308,7 @@ public class MainActivity extends AppCompatActivity {
         View dialogView = inflater.inflate(R.layout.dialog_engine_parameters, null);
 
         Spinner timeSpinner = dialogView.findViewById(R.id.consider_time_spinner);
+        Spinner multiPvSpinner = dialogView.findViewById(R.id.consider_multipv_spinner);
         RadioGroup startPositionGroup = dialogView.findViewById(R.id.radio_group_start_position);
 
         // ResourceのarrayからSpinnerのアイテム名をコピー
@@ -1238,6 +1326,15 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        String[] multiPvValues = context.getResources().getStringArray(R.array.multipv_values);
+        int lastMultiPv = AppSettings.analysisMultiPv(context);
+        for (int i = 0; i < multiPvValues.length; i++) {
+            if (Integer.parseInt(multiPvValues[i]) == lastMultiPv) {
+                multiPvSpinner.setSelection(i);
+                break;
+            }
+        }
+
         // ダイアログの表示
         MaterialAlertDialogBuilder builder =
                 new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Androshogi_AlertDialog);
@@ -1250,13 +1347,15 @@ public class MainActivity extends AppCompatActivity {
             // Map to corresponding value
             int timeValue = Integer.parseInt(valueArray[selectedPosition]);
             AppSettings.setAnalysisTimeMs(context, timeValue);
+            int multiPv = Integer.parseInt(multiPvValues[multiPvSpinner.getSelectedItemPosition()]);
+            AppSettings.setAnalysisMultiPv(context, multiPv);
 
             // Get the selected start position
             int selectedId = startPositionGroup.getCheckedRadioButtonId();
             ConsiderStart start = selectedId == R.id.radio_beginning ? ConsiderStart.BEGINNING : ConsiderStart.CURRENT;
 
             // Pass the parameters back using the callback
-            callback.onParameterSet(timeValue, start);
+            callback.onParameterSet(timeValue, multiPv, start);
         });
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
@@ -1281,5 +1380,5 @@ enum ConsiderStart {
 }
 
 interface ParameterCallback {
-    void onParameterSet(int timeValue, ConsiderStart start);
+    void onParameterSet(int timeValue, int multiPv, ConsiderStart start);
 }
