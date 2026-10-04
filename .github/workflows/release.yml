@@ -347,18 +347,30 @@ jobs:
           ## 評価関数の準備
 
           APK にはやねうら王のエンジンを同梱していますが、評価関数は同梱していません。
-          棋譜の閲覧や盤面操作はそのまま使えます。検討・棋譜解析には、利用者が
-          標準 NNUE（HalfKP）対応の評価関数 `nn.bin` を別途用意する必要があります。
+          棋譜の閲覧や盤面操作はそのまま使えます。検討・棋譜解析には、対応する
+          NNUE 構造の評価関数 `nn.bin` を別途用意する必要があります。
           評価関数の入手先と利用条件は、配布元で確認してください。
 
           1. `nn.bin` を端末へ保存する。
-          2. アプリの「設定 → エンジン → 評価関数ファイル（nn.bin）」で選択し、
+          2. 「設定 → エンジン → エンジンの種類」で、評価関数に対応する NNUE 構造を選ぶ。
+          3. 「評価関数ファイル（nn.bin）」でファイルを選択し、
              取り込みが完了するまで待つ。
-          3. 設定画面から戻り、検討または棋譜解析を開始する。
+          4. `FV_SCALE` を配布元の案内に合わせて設定し、メイン画面に戻る。
 
-          `FV_SCALE` の既定値は 16 です。水匠5の評価関数では 24、
-          Háo の評価関数では 20 に設定してください。
-          対応しない評価関数ではエンジンを起動できない場合があります。
+          | 評価関数の例 | 選択する NNUE 構造 | FV_SCALE の設定目安 |
+          | --- | --- | --- |
+          | Háo | `halfkp_256x2_32_32` | 20 |
+          | 水匠5 | `halfkp_256x2_32_32` | 24 |
+          | 振電3 | `halfkp_512x2_8_64` | 40 |
+          | AobaNNUE | `halfkp_768x2_16_64` | 40 |
+
+          256構造の初期値は16、512・768構造は40です。配布元の指定を優先してください。
+          評価関数と `FV_SCALE` は NNUE 構造ごとに1組保持します。
+          同じ構造の評価関数を取り込むと、その構造のファイルが置き換わります。
+          v0.1.0 の評価関数と `FV_SCALE` は256構造用として引き継ぎます。
+          構造や評価関数を変更してメイン画面へ戻ると、実行中の検討・解析を終了して
+          エンジンを再起動します。保存済みの解析結果は保持します。
+          入手先の例と詳しい使い方は [README](https://github.com/tatsy/androshogi/blob/SOURCE_REF/README.md#評価関数の準備) を参照してください。
 
           ## 動作環境
 
@@ -389,7 +401,7 @@ jobs:
           [THIRD_PARTY_NOTICES.md](https://github.com/tatsy/androshogi/blob/SOURCE_REF/docs/THIRD_PARTY_NOTICES.md)、
           [ソースコード](https://github.com/tatsy/androshogi/tree/SOURCE_REF)を参照してください。
           エンジンの配布元とビルド情報は
-          [README](https://github.com/tatsy/androshogi/blob/SOURCE_REF/README.md)に記載しています。
+          [CONTRIBUTION](https://github.com/tatsy/androshogi/blob/SOURCE_REF/docs/CONTRIBUTION.md#思考エンジンの再ビルド)に記載しています。
           NOTES
 
           source_ref="$TAG"
