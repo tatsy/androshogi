@@ -49,6 +49,25 @@ public class GameSessionTest {
         assertEquals(comment, saved.record.startComment());
     }
 
+    @Test public void editedPlayerNamesKeepAnEmptyGameFromBeingOverwritten() {
+        GameSession game = session();
+        game.record().setPlayerNames("先手 太郎", "White");
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(300);
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertEquals("先手 太郎", saved.record.blackName());
+        assertEquals("White", saved.record.whiteName());
+        assertTrue(game.isScratchGame());
+
+        game.load(saved);
+        assertFalse(game.isScratchGame());
+        game.record().setPlayerNames("Black", "後手 花子");
+        assertFalse(game.isScratchGame());
+        game.record().setPlayerNames("Black", "White");
+        assertTrue(game.isScratchGame());
+    }
+
     @Test public void analyzedOrModifiedGameGetsANewId() {
         GameSession game = session();
         game.analysis().put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,

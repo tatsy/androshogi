@@ -2,6 +2,10 @@
     <string name="app_name">AndroShogi</string>
     <string name="default_black_name">先手</string>
     <string name="default_white_name">後手</string>
+    <string name="edit_player_names">プレイヤー名を編集</string>
+    <string name="black_player_name">先手の名前</string>
+    <string name="white_player_name">後手の名前</string>
+    <string name="save_player_names">保存</string>
     <string name="prom_label">成り</string>
     <string name="not_prom_label">不成</string>
     <string name="start_board">開始局面</string>

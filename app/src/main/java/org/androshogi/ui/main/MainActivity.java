@@ -538,11 +538,15 @@ public class MainActivity extends AppCompatActivity {
                 && record.node(record.currentNodeId()).childIds().size() > 1);
         popupMenu.getMenu().findItem(R.id.return_main_line).setEnabled(analysisRun == null
                 && !record.isMainLineSelected());
+        popupMenu.getMenu().findItem(R.id.edit_player_names).setEnabled(!initialGameLoadPending);
         MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.new_game) {
                 newGame();
+                return true;
+            } else if (itemId == R.id.edit_player_names) {
+                editPlayerNames();
                 return true;
             } else if (itemId == R.id.start_board) {
                 if (requireIdleNavigation()) {
@@ -613,6 +617,18 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
         popupMenu.show();
+    }
+
+    /** Updates only the current game's names, keeping its position and analysis intact. */
+    private void editPlayerNames() {
+        if (initialGameLoadPending) return;
+        GameRecord record = game.record();
+        PlayerNamesDialog.show(this, record.blackName(), record.whiteName(), (black, white) -> {
+            if (game.record() != record) return;
+            record.setPlayerNames(black, white);
+            refresh();
+            saveGame();
+        });
     }
 
     /** Chooses the next move from the currently displayed branch point. */

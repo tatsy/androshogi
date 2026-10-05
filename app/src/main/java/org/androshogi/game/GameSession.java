@@ -4,6 +4,7 @@ import org.androshogi.engine.EngineSession;
 import org.androshogi.shogi.Shogi;
 import org.androshogi.storage.SavedGame;
 
+import java.util.Objects;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -11,15 +12,20 @@ import java.util.function.Supplier;
 public final class GameSession {
     private final Supplier<String> newId;
     private final LongSupplier clock;
+    private final String defaultBlackName;
+    private final String defaultWhiteName;
     // Keep this instance stable: views hold a reference to it while a game is loaded.
     private final GameAnalysis analysis;
     private GameRecord record;
     private String id;
     private long createdAt;
 
+    /** The initial record supplies the default names for identifying untouched scratch games. */
     public GameSession(GameRecord initialRecord, Supplier<String> newId, LongSupplier clock) {
         this.newId = newId;
         this.clock = clock;
+        defaultBlackName = initialRecord.blackName();
+        defaultWhiteName = initialRecord.whiteName();
         record = initialRecord;
         analysis = new GameAnalysis(record);
         id = newId.get();
@@ -33,6 +39,8 @@ public final class GameSession {
 
     public boolean isScratchGame() {
         return !record.hasMoves() && analysis.count() == 0
+                && Objects.equals(defaultBlackName, record.blackName())
+                && Objects.equals(defaultWhiteName, record.whiteName())
                 && (record.startComment() == null || record.startComment().isEmpty())
                 && Shogi.STARTING_SFEN.equals(record.startSfen());
     }

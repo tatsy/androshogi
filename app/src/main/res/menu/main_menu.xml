@@ -11,6 +11,9 @@
             android:id="@+id/game_list"
             android:title="@string/game_list"/>
         <item
+            android:id="@+id/edit_player_names"
+            android:title="@string/edit_player_names"/>
+        <item
             android:id="@+id/paste_kifu"
             android:title="@string/paste_kifu"/>
     </group>
