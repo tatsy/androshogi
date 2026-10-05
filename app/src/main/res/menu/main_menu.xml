@@ -49,6 +49,9 @@
             android:id="@+id/return_main_line"
             android:title="@string/return_main_line"/>
         <item
+            android:id="@+id/delete_last_move"
+            android:title="@string/delete_last_move"/>
+        <item
             android:id="@+id/copy_sfen"
             android:title="@string/copy_sfen"/>
     </group>

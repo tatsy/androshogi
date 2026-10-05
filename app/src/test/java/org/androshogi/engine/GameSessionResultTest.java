@@ -45,4 +45,17 @@ public class GameSessionResultTest {
         assertTrue(game.storeResult(record, 1, record.currentNodeId(), "same", result("same", false)));
     }
 
+    @Test public void aLateResultCannotResurrectADeletedOrUndoneSearchTarget() {
+        GameRecord record = new GameRecord("position", "B", "W");
+        record.playVariation(42);
+        long deleted = record.currentNodeId();
+        record.addVariation(GameRecord.ROOT_ID, 43, 0, null);
+        GameSession game = new GameSession(record, () -> "id", () -> 100);
+        GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
+        assertFalse(game.storeResult(record, 1, deleted, "same", result("same", false)));
+        assertTrue(game.undoLeafDeletion(deletion));
+        assertFalse(game.storeResult(record, 1, deleted, "same", result("same", false)));
+        assertTrue(game.storeResult(game.record(), 1, deleted, "same", result("same", false)));
+    }
+
 }

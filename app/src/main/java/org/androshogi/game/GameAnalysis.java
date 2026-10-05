@@ -79,6 +79,11 @@ public final class GameAnalysis {
         for (int ply = Math.max(0, fromPly); ply <= record.length(); ply++) {
             results.remove(record.nodeIdAtPly(ply));
         }
+        pruneDeletedNodes();
+    }
+
+    /** Removes only results whose positions no longer exist in the tree. */
+    public void pruneDeletedNodes() {
         results.keySet().removeIf(id -> record.node(id) == null);
     }
 

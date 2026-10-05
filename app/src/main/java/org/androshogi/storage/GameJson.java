@@ -16,11 +16,12 @@ import java.util.Map;
 
 /**
  * Lossless app storage, independent of KIF export and the native board.
- * Format 2 stores the whole position tree and results keyed by node ID.
+ * Formats 2 and 3 store the whole position tree and results keyed by node ID.
+ * Format 3 also permits forks whose main or selected continuation was removed.
  * The format 1 linear records written by v0.1.0 are migrated on read.
  */
 public final class GameJson {
-    public static final int FORMAT = 2;
+    public static final int FORMAT = 3;
 
     private GameJson() {}
 
@@ -113,7 +114,7 @@ public final class GameJson {
 
     private static int checkFormat(JSONObject root) throws JSONException {
         int format = root.optInt("format", 0);
-        if (format != 1 && format != FORMAT) {
+        if (format != 1 && format != 2 && format != FORMAT) {
             throw new JSONException("unsupported saved game format " + format);
         }
         return format;

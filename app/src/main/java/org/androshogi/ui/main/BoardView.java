@@ -512,6 +512,9 @@ public class BoardView extends View implements EngineUpdateListener {
     }
 
     public boolean forwardBoard() {
+        int previousLength = record.length();
+        record.prepareForward();
+        if (record.length() != previousLength) notifyRecordChanged();
         int move = record.nextMove();
         if (move != Shogi.MOVE_NONE) {
             record.forward();

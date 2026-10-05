@@ -37,6 +37,7 @@ public final class GameRecord {
     private String blackName;
     private String whiteName;
     private int currentPly;
+    private long editVersion;
 
     public GameRecord(String startSfen, String blackName, String whiteName) {
         this(startSfen, blackName, whiteName, null);
@@ -83,6 +84,7 @@ public final class GameRecord {
         }
         selectedChildren.putAll(other.selectedChildren);
         nextNodeId = other.nextNodeId;
+        editVersion = other.editVersion;
         rebuildRoute();
         currentPly = other.currentPly;
     }
@@ -91,7 +93,13 @@ public final class GameRecord {
     public String startComment() { return nodes.get(ROOT_ID).comment(); }
     public String blackName() { return blackName; }
     public String whiteName() { return whiteName; }
-    public void setPlayerNames(String black, String white) { blackName = black; whiteName = white; }
+    public void setPlayerNames(String black, String white) {
+        blackName = black;
+        whiteName = white;
+        editVersion++;
+    }
+    /** Changes to data, excluding cursor and route navigation. Used to invalidate undo. */
+    public long editVersion() { return editVersion; }
     public int length() { return selectedRoute.size() - 1; }
     public int currentPly() { return currentPly; }
     public int remaining() { return length() - currentPly; }
@@ -118,8 +126,44 @@ public final class GameRecord {
     public Long selectedChildId(long parentId) { return selectedChildren.get(parentId); }
 
     public boolean forward() {
-        if (isAtEnd()) return false;
+        if (!prepareForward()) return false;
         currentPly++;
+        return true;
+    }
+
+    /** Selects a sole remaining continuation; ambiguous forks require explicit selection. */
+    public boolean prepareForward() {
+        if (isAtEnd()) {
+            GameNode current = nodes.get(currentNodeId());
+            if (current.childIds().size() == 1) {
+                selectedChildren.put(current.id(), current.childIds().get(0));
+                rebuildRoute();
+            }
+        }
+        return !isAtEnd();
+    }
+
+    public boolean canDeleteCurrentLeaf() {
+        return !isAtStart() && nodes.get(currentNodeId()).childIds().isEmpty();
+    }
+
+    /** Removes exactly the current leaf, never a sibling or descendant subtree. */
+    public boolean deleteCurrentLeaf() {
+        if (!canDeleteCurrentLeaf()) return false;
+        GameNode leaf = nodes.get(currentNodeId());
+        GameNode parent = nodes.get(leaf.parentId());
+        parent.removeChild(leaf.id());
+        nodes.remove(leaf.id());
+        selectedChildren.remove(leaf.id());
+        if (Long.valueOf(leaf.id()).equals(selectedChildren.get(parent.id()))) {
+            selectedChildren.remove(parent.id());
+        }
+        if (selectedChildren.get(parent.id()) == null && parent.childIds().size() == 1) {
+            selectedChildren.put(parent.id(), parent.childIds().get(0));
+        }
+        currentPly--;
+        editVersion++;
+        rebuildRoute();
         return true;
     }
     public boolean backward() {
@@ -159,6 +203,7 @@ public final class GameRecord {
             selectedChildren.remove(removed.id());
         }
         parent.clearChildren();
+        editVersion++;
         selectedChildren.remove(parent.id());
         rebuildRoute();
         currentPly = Math.min(currentPly, keep);
@@ -185,8 +230,10 @@ public final class GameRecord {
             selectedChildren.put(node.id(), node.mainChildId());
             node = nodes.get(node.mainChildId());
         }
+        // The original route may now end at a fork that still has other children.
+        selectedChildren.remove(node.id());
         rebuildRoute();
-        currentPly = targetPly;
+        currentPly = Math.min(targetPly, length());
     }
 
     /** Includes continuations beyond the cursor when deciding whether the main route is selected. */
@@ -235,12 +282,14 @@ public final class GameRecord {
         GameNode parent = requireNode(parentId);
         if (nextNodeId == Long.MAX_VALUE) throw new IllegalStateException("Node IDs exhausted");
         long id = nextNodeId++;
+        boolean firstChild = parent.childIds().isEmpty();
         nodes.put(id, new GameNode(id, parentId, move, seconds, comment));
         parent.addChild(id);
-        if (parent.mainChildId() == null) {
+        if (firstChild) {
             parent.setMainChild(id);
             selectedChildren.put(parentId, id);
         }
+        editVersion++;
         return id;
     }
 
@@ -307,12 +356,14 @@ public final class GameRecord {
                     throw new IllegalArgumentException("Leaf has a continuation");
                 }
             } else {
-                if (!node.childIds().contains(entry.mainChildId)
-                        || !node.childIds().contains(entry.selectedChildId)) {
+                if ((entry.mainChildId != null && !node.childIds().contains(entry.mainChildId))
+                        || (entry.selectedChildId != null && !node.childIds().contains(entry.selectedChildId))) {
                     throw new IllegalArgumentException("Continuation is not a child");
                 }
                 node.setMainChild(entry.mainChildId);
-                record.selectedChildren.put(node.id(), entry.selectedChildId);
+                if (entry.selectedChildId != null) {
+                    record.selectedChildren.put(node.id(), entry.selectedChildId);
+                }
             }
         }
         ArrayDeque<Long> pending = new ArrayDeque<>();

@@ -67,6 +67,37 @@ public final class GameSession {
         analysis.truncate(fromPly);
     }
 
+    /** One undo token, valid only until another data edit or record replacement. */
+    public static final class LeafDeletion {
+        private final GameRecord editedRecord;
+        private final long editVersion;
+        private final SavedGame before;
+
+        private LeafDeletion(GameRecord editedRecord, SavedGame before) {
+            this.editedRecord = editedRecord;
+            this.editVersion = editedRecord.editVersion();
+            this.before = before;
+        }
+    }
+
+    public LeafDeletion deleteCurrentLeaf() {
+        if (!record.canDeleteCurrentLeaf()) return null;
+        SavedGame before = snapshot(clock.getAsLong());
+        record.deleteCurrentLeaf();
+        analysis.pruneDeletedNodes();
+        return new LeafDeletion(record, before);
+    }
+
+    public boolean undoLeafDeletion(LeafDeletion deletion) {
+        if (deletion == null || record != deletion.editedRecord
+                || record.editVersion() != deletion.editVersion) return false;
+        // A completed search may have posted a result after the deletion snapshot.
+        GameAnalysis retained = new GameAnalysis(analysis, deletion.before.record);
+        load(deletion.before);
+        analysis.putAll(retained);
+        return true;
+    }
+
     /** Stores only a normally completed result for the unchanged record and position. */
     public boolean storeResult(GameRecord searched, int ply, long nodeId, String positionSfen,
                                EngineSession.SearchResult result) {
