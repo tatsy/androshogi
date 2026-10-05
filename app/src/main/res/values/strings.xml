@@ -83,6 +83,15 @@
     <string name="game_list_current">（表示中）</string>
     <string name="game_list_details">%1$d手 ・ 解析 %2$d局面 ・ %3$s</string>
     <string name="game_list_delete_action">削除</string>
+    <string name="game_list_select">選択</string>
+    <string name="game_list_select_all">全選択</string>
+    <string name="game_list_deselect_all">選択解除</string>
+    <string name="game_list_selected_count">%1$d件選択中</string>
+    <string name="game_list_select_game">%1$s の棋譜を選択</string>
+    <string name="game_list_busy">処理中…</string>
+    <string name="game_list_delete_selected_message">選択した%1$d件の棋譜と解析結果を削除します。元に戻せません。</string>
+    <string name="game_list_deleted_count">%1$d件の棋譜を削除しました</string>
+    <string name="game_list_delete_partial">%1$d件を削除しました。%2$d件は削除できませんでした。</string>
     <string name="game_list_delete_title">棋譜を削除しますか？</string>
     <string name="game_list_delete_message">%1$s の棋譜と解析結果を削除します。元に戻せません。</string>
     <string name="game_list_deleted">削除しました</string>
