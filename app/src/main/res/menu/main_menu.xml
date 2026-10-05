@@ -10,6 +10,9 @@
         <item
             android:id="@+id/game_list"
             android:title="@string/game_list"/>
+        <item
+            android:id="@+id/paste_kifu"
+            android:title="@string/paste_kifu"/>
     </group>
 
     <!-- KIF の入出力: 読み込みから保存・共有の順 -->
@@ -17,9 +20,6 @@
         <item
             android:id="@+id/open_kifu"
             android:title="@string/open_kifu"/>
-        <item
-            android:id="@+id/paste_kifu"
-            android:title="@string/paste_kifu"/>
         <item
             android:id="@+id/save_kifu"
             android:title="@string/save_kifu"/>
