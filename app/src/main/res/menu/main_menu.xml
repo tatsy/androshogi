@@ -45,6 +45,9 @@
         <item
             android:id="@+id/return_main_line"
             android:title="@string/return_main_line"/>
+        <item
+            android:id="@+id/copy_sfen"
+            android:title="@string/copy_sfen"/>
     </group>
 
     <!-- 検討 -->

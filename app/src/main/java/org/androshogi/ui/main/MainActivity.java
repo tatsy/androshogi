@@ -564,6 +564,9 @@ public class MainActivity extends AppCompatActivity {
                     showRecord();
                 }
                 return true;
+            } else if (itemId == R.id.copy_sfen) {
+                copySfen();
+                return true;
             } else if (itemId == R.id.auto_analyze) {
                 //　自動検討
                 autoAnalysis(view);
@@ -1032,6 +1035,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    /** Copies only the displayed position; rotating the board does not change its SFEN. */
+    private void copySfen() {
+        clipboard.setPrimaryClip(ClipData.newPlainText("SFEN", boardView.getSFEN()));
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            // Android 13 and later show their own confirmation.
+            Toast.makeText(this, R.string.sfen_copied, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void copyKif() {
