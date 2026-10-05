@@ -10,7 +10,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.*;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
@@ -127,7 +126,9 @@ public class GameListActivityTest {
     }
 
     @Test public void batchDeleteReturnsCurrentDeletionAfterRecreation() {
-        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launchActivityForResult(intent())) {
+        // GameListActivity is internal; the bootstrap used by launchActivityForResult
+        // runs in the separate test APK and cannot open a non-exported activity.
+        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
             awaitReady(scenario);
             selectBoth(scenario);
             menu(scenario, R.id.game_delete_selected);
@@ -138,11 +139,13 @@ public class GameListActivityTest {
             assertNull(store.load(second));
             scenario.recreate();
             awaitReady(scenario);
-            scenario.onActivity(activity -> activity.onSupportNavigateUp());
-            assertEquals(Activity.RESULT_OK, scenario.getResult().getResultCode());
-            assertTrue(scenario.getResult().getResultData()
-                    .getBooleanExtra(GameListActivity.EXTRA_CURRENT_DELETED, false));
-            assertNull(scenario.getResult().getResultData().getStringExtra(GameListActivity.EXTRA_OPEN_ID));
+            scenario.onActivity(activity -> {
+                Intent result = activity.resultIntent(null);
+                assertTrue(result.getBooleanExtra(GameListActivity.EXTRA_CURRENT_DELETED, false));
+                assertNull(result.getStringExtra(GameListActivity.EXTRA_OPEN_ID));
+                assertEquals(second, activity.resultIntent(second).getStringExtra(GameListActivity.EXTRA_OPEN_ID));
+                activity.onSupportNavigateUp();
+            });
         }
     }
 

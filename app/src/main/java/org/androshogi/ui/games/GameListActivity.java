@@ -222,13 +222,18 @@ public class GameListActivity extends AppCompatActivity {
 
     private void finishWithResult(@Nullable String openId) {
         if (busy()) return;
+        setResult(RESULT_OK, resultIntent(openId));
+        finish();
+    }
+
+    /** The same result is used after single or bulk deletion, including recreation. */
+    Intent resultIntent(@Nullable String openId) {
         Intent result = new Intent();
         if (openId != null) {
             result.putExtra(EXTRA_OPEN_ID, openId);
         }
         result.putExtra(EXTRA_CURRENT_DELETED, currentDeleted);
-        setResult(RESULT_OK, result);
-        finish();
+        return result;
     }
 
     private void confirmDelete(GameSummary game) {
