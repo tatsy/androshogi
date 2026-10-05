@@ -126,6 +126,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Nullable
     private String pendingKifExport;
+    @Nullable
+    private String pendingKifFileName;
     private int pendingKifFormat;
 
     /** Brings back the choice made on the saved-game list. */
@@ -159,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.OpenDocumentTree(), uri -> {
                 if (uri == null) {
                     pendingKifExport = null;
+                    pendingKifFileName = null;
                     return;
                 }
                 if (!AppSettings.setKifSaveFolder(this, uri)) {
@@ -977,14 +980,19 @@ public class MainActivity extends AppCompatActivity {
         if (text == null) {
             return;
         }
+        GameRecord record = game.record();
+        String fileNameBase = KifFileName.baseName(game.createdAt(),
+                record.blackName(), record.whiteName());
         boolean hasAnalysis = false;
         for (int ply = 0; ply <= game.record().length(); ply++) {
             if (game.analysis().has(ply)) { hasAnalysis = true; break; }
         }
         KifExportDialog.show(this, hasAnalysis, (choice, includeAnalysis) -> {
+            if (game.record() != record) return;
             pendingKifExport = includeAnalysis
                     ? KifWriter.write(game.record(), game.createdAt(), game.analysis()) : text;
             pendingKifFormat = choice;
+            pendingKifFileName = fileNameBase + (choice == 0 ? ".kif" : ".kifu");
             if (AppSettings.kifSaveFolder(this) == null) {
                 promptForKifFolder();
             } else {
@@ -1002,15 +1010,19 @@ public class MainActivity extends AppCompatActivity {
                 .setNeutralButton(R.string.kifu_folder_skip,
                         (dialog, which) -> launchPendingKifExport())
                 .setNegativeButton(android.R.string.cancel,
-                        (dialog, which) -> pendingKifExport = null)
+                        (dialog, which) -> {
+                            pendingKifExport = null;
+                            pendingKifFileName = null;
+                        })
                 .show();
     }
 
     private void launchPendingKifExport() {
+        if (pendingKifExport == null || pendingKifFileName == null) return;
         if (pendingKifFormat == 0) {
-            createKifLauncher.launch("AndroShogi.kif");
+            createKifLauncher.launch(pendingKifFileName);
         } else {
-            createKifuLauncher.launch("AndroShogi.kifu");
+            createKifuLauncher.launch(pendingKifFileName);
         }
     }
 
@@ -1018,6 +1030,7 @@ public class MainActivity extends AppCompatActivity {
     private void exportKif(@Nullable Uri uri, Charset charset) {
         String text = pendingKifExport;
         pendingKifExport = null;
+        pendingKifFileName = null;
         if (uri == null) {
             return;
         }
