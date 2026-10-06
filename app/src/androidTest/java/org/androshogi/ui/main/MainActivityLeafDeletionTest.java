@@ -3,6 +3,9 @@ package org.androshogi.ui.main;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.Espresso.pressBack;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.longClick;
+import static androidx.test.espresso.action.ViewActions.replaceText;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -38,6 +41,16 @@ public class MainActivityLeafDeletionTest {
         menuItem(id).perform(click());
     }
 
+    private void assertUndoEnabled(boolean enabled) {
+        onView(withId(R.id.menu_button)).perform(click());
+        menuItem(R.id.undo_delete_move).check(matches(enabled ? isEnabled() : not(isEnabled())));
+        pressBack();
+    }
+
+    private void assertNoDeletionPopup() {
+        onView(withId(com.google.android.material.R.id.snackbar_text)).check(doesNotExist());
+    }
+
     private void assertPosition(BoardView view, String... moves) {
         Board expected = new Board();
         try {
@@ -62,19 +75,29 @@ public class MainActivityLeafDeletionTest {
 
     @Test public void deletesOneMoveAndUndoRebuildsTheNativeBoardAndComments() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> activity.parseShogiData(KIF));
+            assertUndoEnabled(false);
+            onView(withId(R.id.backward_button)).perform(click());
+            onView(withId(R.id.backward_button)).perform(longClick());
             scenario.onActivity(activity -> {
-                activity.parseShogiData(KIF);
-                ((BoardView) activity.findViewById(R.id.board_view)).seekTo(1);
+                BoardView view = activity.findViewById(R.id.board_view);
+                assertPosition(view, "7g7f");
+                assertEquals(2, view.getRecord().length());
             });
+            assertNoDeletionPopup();
             onView(withId(R.id.menu_button)).perform(click());
             menuItem(R.id.delete_last_move).check(matches(not(isEnabled())));
             pressBack();
             scenario.onActivity(activity -> ((BoardView) activity.findViewById(R.id.board_view)).seekTo(0));
+            onView(withId(R.id.backward_button)).perform(longClick());
+            scenario.onActivity(activity -> assertPosition(activity.findViewById(R.id.board_view)));
+            assertNoDeletionPopup();
             onView(withId(R.id.menu_button)).perform(click());
             menuItem(R.id.delete_last_move).check(matches(not(isEnabled())));
             pressBack();
             scenario.onActivity(activity -> ((BoardView) activity.findViewById(R.id.board_view)).seekTo(2));
-            menu(R.id.delete_last_move);
+            onView(withId(R.id.backward_button)).perform(longClick());
+            assertNoDeletionPopup();
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 assertPosition(view, "7g7f");
@@ -82,7 +105,9 @@ public class MainActivityLeafDeletionTest {
                 assertEquals(2, view.getRecord().nodes().size());
                 assertEquals("初手コメント", view.getRecord().comment(0));
             });
-            onView(withText(R.string.undo_delete_move)).perform(click());
+            scenario.onActivity(activity -> ((BoardView) activity.findViewById(R.id.board_view)).seekTo(0));
+            assertUndoEnabled(true);
+            menu(R.id.undo_delete_move);
             scenario.onActivity(activity -> {
                 BoardView view = activity.findViewById(R.id.board_view);
                 assertPosition(view, "7g7f", "3c3d");
@@ -92,6 +117,7 @@ public class MainActivityLeafDeletionTest {
                 view.forwardBoard();
                 assertPosition(view, "7g7f", "3c3d");
             });
+            assertUndoEnabled(false);
         }
     }
 
@@ -113,6 +139,52 @@ public class MainActivityLeafDeletionTest {
             });
             onView(withId(R.id.forward_button)).perform(click());
             scenario.onActivity(activity -> assertPosition(activity.findViewById(R.id.board_view), "7g7f", "8c8d"));
+            assertUndoEnabled(true);
+            menu(R.id.undo_delete_move);
+            scenario.onActivity(activity -> assertPosition(activity.findViewById(R.id.board_view), "7g7f", "3c3d"));
+        }
+    }
+
+    @Test public void repeatedDeletionKeepsOnlyLastUndoAndInvalidatesItOnEditsAndGameChange() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> activity.parseShogiData(KIF));
+            onView(withId(R.id.backward_button)).perform(longClick());
+            onView(withId(R.id.backward_button)).perform(longClick());
+            // An unavailable long press must not discard the last successful deletion.
+            onView(withId(R.id.backward_button)).perform(longClick());
+            assertNoDeletionPopup();
+            scenario.onActivity(activity -> assertPosition(activity.findViewById(R.id.board_view)));
+            assertUndoEnabled(true);
+            menu(R.id.undo_delete_move);
+            scenario.onActivity(activity -> {
+                BoardView view = activity.findViewById(R.id.board_view);
+                assertPosition(view, "7g7f");
+                assertEquals(1, view.getRecord().length());
+                assertEquals("初手コメント", view.getRecord().comment(0));
+            });
+            assertUndoEnabled(false);
+            menu(R.id.delete_last_move);
+            scenario.onActivity(activity -> {
+                BoardView view = activity.findViewById(R.id.board_view);
+                Board board = new Board(view.getSFEN());
+                try {
+                    view.commitMove(Move.fromUSI(board, "7g7f"));
+                } finally {
+                    board.cleanup();
+                }
+            });
+            assertUndoEnabled(false);
+            menu(R.id.delete_last_move);
+            assertNoDeletionPopup();
+            onView(withId(R.id.black_info_view)).perform(click());
+            onView(withId(R.id.black_player_name)).perform(replaceText("編集済み"));
+            onView(withText(R.string.save_player_names)).perform(click());
+            assertUndoEnabled(false);
+            scenario.onActivity(activity -> activity.parseShogiData(KIF));
+            menu(R.id.delete_last_move);
+            assertUndoEnabled(true);
+            menu(R.id.new_game);
+            assertUndoEnabled(false);
         }
     }
 

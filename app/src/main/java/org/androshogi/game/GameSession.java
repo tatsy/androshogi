@@ -88,9 +88,13 @@ public final class GameSession {
         return new LeafDeletion(record, before);
     }
 
+    public boolean canUndoLeafDeletion(LeafDeletion deletion) {
+        return deletion != null && record == deletion.editedRecord
+                && record.editVersion() == deletion.editVersion;
+    }
+
     public boolean undoLeafDeletion(LeafDeletion deletion) {
-        if (deletion == null || record != deletion.editedRecord
-                || record.editVersion() != deletion.editVersion) return false;
+        if (!canUndoLeafDeletion(deletion)) return false;
         // A completed search may have posted a result after the deletion snapshot.
         GameAnalysis retained = new GameAnalysis(analysis, deletion.before.record);
         load(deletion.before);

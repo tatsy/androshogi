@@ -112,6 +112,7 @@ public class LeafDeletionTest {
         game.analysis().putByNode(sibling, siblingResult);
         GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
         assertNotNull(deletion);
+        assertTrue(game.canUndoLeafDeletion(deletion));
         assertNull(game.analysis().getByNode(leaf));
         assertSame(siblingResult, game.analysis().getByNode(sibling));
         PositionAnalysis lateResult = result("late");
@@ -127,20 +128,41 @@ public class LeafDeletionTest {
         assertSame(leafResult, game.analysis().getByNode(leaf));
         assertSame(siblingResult, game.analysis().getByNode(sibling));
         assertSame(lateResult, game.analysis().getByNode(parent));
+        assertFalse(game.canUndoLeafDeletion(deletion));
         assertFalse(game.undoLeafDeletion(deletion));
+    }
+
+    @Test public void undoRemainsAvailableAfterNavigationAndRetainsOnlyTheLastDeletion() {
+        GameSession game = new GameSession(record(), () -> "id", () -> 100L);
+        assertFalse(game.canUndoLeafDeletion(null));
+        GameSession.LeafDeletion first = game.deleteCurrentLeaf();
+        GameSession.LeafDeletion last = game.deleteCurrentLeaf();
+        assertFalse(game.canUndoLeafDeletion(first));
+        assertTrue(game.canUndoLeafDeletion(last));
+        game.record().selectMainLine();
+        game.record().seek(0);
+        assertTrue(game.canUndoLeafDeletion(last));
+        assertTrue(game.undoLeafDeletion(last));
+        assertEquals(1, game.record().length());
+        assertEquals(1, game.record().currentPly());
+        assertFalse(game.canUndoLeafDeletion(first));
+        assertFalse(game.canUndoLeafDeletion(last));
     }
 
     @Test public void undoCannotOverwriteAnEditOrAnotherGame() {
         GameSession game = new GameSession(record(), () -> "id", () -> 100L);
         GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
         game.record().playVariation(77);
+        assertFalse(game.canUndoLeafDeletion(deletion));
         assertFalse(game.undoLeafDeletion(deletion));
         deletion = game.deleteCurrentLeaf();
         game.record().setPlayerNames("edited", "W");
+        assertFalse(game.canUndoLeafDeletion(deletion));
         assertFalse(game.undoLeafDeletion(deletion));
         game.record().playVariation(88);
         deletion = game.deleteCurrentLeaf();
         game.startNew(record(), true);
+        assertFalse(game.canUndoLeafDeletion(deletion));
         assertFalse(game.undoLeafDeletion(deletion));
     }
 }

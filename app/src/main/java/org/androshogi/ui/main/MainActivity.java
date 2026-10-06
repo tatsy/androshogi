@@ -69,7 +69,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.snackbar.Snackbar;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -118,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
     /** The game shown on the board and its persistent identity. */
     private GameSession game;
     @Nullable
-    private Snackbar leafUndo;
+    private GameSession.LeafDeletion leafUndo;
     private GameStore gameStore;
     /** Serializes disk access so saves cannot overtake one another. */
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -233,6 +232,11 @@ public class MainActivity extends AppCompatActivity {
                 boardView.backwardBoard();
             }
         });
+        backButton.setOnLongClickListener(v -> {
+            deleteLastMove();
+            // Consume even an unavailable deletion so release does not move the cursor.
+            return true;
+        });
         Button foreButton = findViewById(R.id.forward_button);
         foreButton.setOnClickListener(v -> {
             if (requireIdleNavigation()) {
@@ -264,7 +268,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onRecordChanged() {
-                clearLeafUndo();
+                discardInvalidLeafUndo();
                 // A user edit wins over any game file that is still being loaded.
                 invalidatePendingGameLoad();
                 moveListAdapter.recordChanged();
@@ -554,6 +558,7 @@ public class MainActivity extends AppCompatActivity {
         popupMenu.getMenu().findItem(R.id.return_main_line).setEnabled(analysisRun == null
                 && !record.isMainLineSelected());
         popupMenu.getMenu().findItem(R.id.delete_last_move).setEnabled(canDeleteLastMove());
+        popupMenu.getMenu().findItem(R.id.undo_delete_move).setEnabled(canUndoLastMove());
         popupMenu.getMenu().findItem(R.id.edit_player_names).setEnabled(!initialGameLoadPending);
         MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
         popupMenu.setOnMenuItemClickListener(item -> {
@@ -586,6 +591,9 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             } else if (itemId == R.id.delete_last_move) {
                 deleteLastMove();
+                return true;
+            } else if (itemId == R.id.undo_delete_move) {
+                undoLastMoveDeletion();
                 return true;
             } else if (itemId == R.id.copy_sfen) {
                 copySfen();
@@ -657,34 +665,34 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearLeafUndo() {
-        if (leafUndo != null) {
-            leafUndo.dismiss();
-            leafUndo = null;
-        }
+        leafUndo = null;
+    }
+
+    private void discardInvalidLeafUndo() {
+        if (!game.canUndoLeafDeletion(leafUndo)) clearLeafUndo();
+    }
+
+    private boolean canUndoLastMove() {
+        return !initialGameLoadPending && analysisRun == null && !engine.isSearching()
+                && game.canUndoLeafDeletion(leafUndo);
     }
 
     private void deleteLastMove() {
         if (!canDeleteLastMove()) return;
         GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
         if (deletion == null) return;
+        leafUndo = deletion;
         invalidatePendingGameLoad();
         showRecord();
         saveGame();
-        Snackbar bar = Snackbar.make(findViewById(R.id.main), R.string.last_move_deleted, Snackbar.LENGTH_LONG);
-        leafUndo = bar;
-        bar.setAction(R.string.undo_delete_move, v -> {
-            if (analysisRun != null || engine.isSearching() || !game.undoLeafDeletion(deletion)) return;
-            invalidatePendingGameLoad();
-            showRecord();
-            saveGame();
-        });
-        bar.addCallback(new Snackbar.Callback() {
-            @Override
-            public void onDismissed(Snackbar snackbar, int event) {
-                if (leafUndo == snackbar) leafUndo = null;
-            }
-        });
-        bar.show();
+    }
+
+    private void undoLastMoveDeletion() {
+        if (!canUndoLastMove() || !game.undoLeafDeletion(leafUndo)) return;
+        clearLeafUndo();
+        invalidatePendingGameLoad();
+        showRecord();
+        saveGame();
     }
 
     /** Chooses the next move from the currently displayed branch point. */
@@ -803,7 +811,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Shows the session's record everywhere: board, move list and name rows. */
     private void showRecord() {
-        clearLeafUndo();
+        discardInvalidLeafUndo();
         GameRecord current = game.record();
         moveListAdapter.setRecord(current);
         graphView.setData(current, game.analysis());
@@ -827,7 +835,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onHintButtonClicked(View view) {
-        clearLeafUndo();
         if (analysisRun != null) {
             // The analysis loop owns the engine until it finishes or is cancelled.
             Toast.makeText(this, R.string.engine_busy, Toast.LENGTH_SHORT).show();
@@ -857,7 +864,9 @@ public class MainActivity extends AppCompatActivity {
                     storeResult(searched, ply, nodeId, result);
                     setHintButtonRunning(false);
                 });
-        if (!started) {
+        if (started) {
+            clearLeafUndo();
+        } else {
             setHintButtonRunning(false);
         }
     }

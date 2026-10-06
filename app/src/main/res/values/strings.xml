@@ -13,8 +13,7 @@
     <string name="select_branch">分岐を選択</string>
     <string name="return_main_line">本譜に戻る</string>
     <string name="delete_last_move">末端の1手を削除</string>
-    <string name="last_move_deleted">末端の1手を削除しました</string>
-    <string name="undo_delete_move">元に戻す</string>
+    <string name="undo_delete_move">削除を元に戻す</string>
     <string name="copy_sfen">SFEN をコピー</string>
     <string name="sfen_copied">SFEN をクリップボードにコピーしました</string>
     <string name="branch_original_marker">（元の手順）</string>
