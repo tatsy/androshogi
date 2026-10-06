@@ -217,6 +217,8 @@ public class MainActivity extends AppCompatActivity {
         clipboard = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
 
         // Set event listeners
+        blackInfoView.setOnClickListener(v -> editPlayerNames());
+        whiteInfoView.setOnClickListener(v -> editPlayerNames());
         Button menuButton = findViewById(R.id.menu_button);
         menuButton.setOnClickListener(this::showPopupMenu);
         Button flipButton = findViewById(R.id.flip_button);
