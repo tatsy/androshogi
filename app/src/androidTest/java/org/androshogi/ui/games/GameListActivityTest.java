@@ -5,6 +5,7 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
@@ -12,12 +13,19 @@ import static org.junit.Assert.*;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
 import androidx.appcompat.widget.Toolbar;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.google.android.material.color.MaterialColors;
 
 import org.androshogi.R;
 import org.androshogi.game.GameAnalysis;
@@ -131,7 +139,29 @@ public class GameListActivityTest {
         try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
             awaitReady(scenario);
             selectBoth(scenario);
-            menu(scenario, R.id.game_delete_selected);
+            // Exercise the actual toolbar control; calling the handler directly misses invisible icons.
+            onView(withId(R.id.game_delete_selected)).check(matches(isDisplayed()));
+            scenario.onActivity(activity -> {
+                Toolbar toolbar = activity.findViewById(R.id.toolbar);
+                Drawable icon = toolbar.getMenu().findItem(R.id.game_delete_selected).getIcon();
+                assertNotNull(icon);
+                Bitmap bitmap = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888);
+                Rect bounds = new Rect(icon.getBounds());
+                try {
+                    icon.setBounds(0, 0, 24, 24);
+                    icon.draw(new Canvas(bitmap));
+                    int foreground = bitmap.getPixel(12, 12);
+                    assertEquals(255, Color.alpha(foreground));
+                    int background = MaterialColors.getColor(toolbar, R.attr.colorSurface);
+                    double fg = Color.luminance(foreground), bg = Color.luminance(background);
+                    double contrast = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+                    assertTrue("Delete icon must contrast with the toolbar", contrast >= 3.0);
+                } finally {
+                    icon.setBounds(bounds);
+                    bitmap.recycle();
+                }
+            });
+            onView(withId(R.id.game_delete_selected)).perform(click());
             onView(withText(R.string.game_list_delete_action)).inRoot(isDialog()).perform(click());
             scenario.recreate();
             awaitReady(scenario);
