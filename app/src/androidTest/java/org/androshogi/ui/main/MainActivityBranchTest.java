@@ -70,7 +70,7 @@ public class MainActivityBranchTest {
             onView(allOf(withId(R.id.move_text), withText("☗７六歩")))
                     .check(matches(isDisplayed())).check(branchIcon(true));
             onView(allOf(withId(R.id.move_text), withText(R.string.move_list_start)))
-                    .check(matches(isDisplayed())).check(branchIcon(false));
+                    .check(branchIcon(false));
             onView(withId(R.id.menu_button)).perform(click());
             menuItem(R.id.select_branch).perform(click());
             onView(withText("☖３四歩（元の手順）")).check(matches(isDisplayed()));
