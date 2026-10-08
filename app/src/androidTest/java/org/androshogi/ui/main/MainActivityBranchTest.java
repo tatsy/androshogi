@@ -7,6 +7,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.androshogi.ui.main.MainActivityMenuActions.menuItem;
+import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
@@ -14,7 +15,9 @@ import static org.junit.Assert.assertTrue;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.widget.TextView;
 
+import androidx.test.espresso.ViewAssertion;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -64,7 +67,10 @@ public class MainActivityBranchTest {
             });
 
             onView(withId(R.id.tab_record)).perform(click());
-            onView(withText("☗７六歩（分岐あり）")).check(matches(isDisplayed()));
+            onView(allOf(withId(R.id.move_text), withText("☗７六歩")))
+                    .check(matches(isDisplayed())).check(branchIcon(true));
+            onView(allOf(withId(R.id.move_text), withText(R.string.move_list_start)))
+                    .check(matches(isDisplayed())).check(branchIcon(false));
             onView(withId(R.id.menu_button)).perform(click());
             menuItem(R.id.select_branch).perform(click());
             onView(withText("☖３四歩（元の手順）")).check(matches(isDisplayed()));
@@ -98,6 +104,15 @@ public class MainActivityBranchTest {
                 assertPosition(view, "7g7f", "3c3d", "2g2f");
             });
         }
+    }
+
+    /** The fork is now a drawable beside the notation, rather than part of its text. */
+    private static ViewAssertion branchIcon(boolean expected) {
+        return (view, noViewFoundException) -> {
+            if (noViewFoundException != null) throw noViewFoundException;
+            TextView text = (TextView) view;
+            assertEquals("Branch icon", expected, text.getCompoundDrawablesRelative()[2] != null);
+        };
     }
 
     /** Tests the actual rendered arrows, including disappearance after leaving a branch point. */
