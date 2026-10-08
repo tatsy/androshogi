@@ -2,6 +2,8 @@
 <resources>
     <color name="black">#ff000000</color>
     <color name="white">#ffffffff</color>
+    <!-- A subtle band over the move list's surface; selection uses its own stronger color. -->
+    <color name="move_row_stripe">#08000000</color>
 
     <!-- 盤まわり。木目と駒はテーマに関係なく同じ見え方にする -->
     <color name="board_background">#ffeeb887</color>

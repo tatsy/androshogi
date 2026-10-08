@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="move_row_stripe">#0affffff</color>
     <!-- ダーク時のアクセント。テーマの colorPrimary (#4f5b93) を暗い面の上に細い線や
          文字として置くとコントラストが 2.5:1 ほどしかない。同系の淡い藍にすると 9:1 になり、
          勝率グラフの線もダイアログのボタンの文字も読める。 -->

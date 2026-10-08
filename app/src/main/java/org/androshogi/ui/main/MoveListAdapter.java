@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -24,7 +25,7 @@ import java.util.Locale;
 
 /**
  * The move list: one row for the starting position and one per move of the
- * {@link GameRecord}, each with black's win rate and score for the position
+ * {@link GameRecord}, each with time spent and black's win rate and score for the position
  * after it when {@link GameAnalysis} has one. Row {@code ply} is the position
  * after {@code ply} moves, so rows and analysis entries share the index.
  *
@@ -118,16 +119,25 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
         if (ply == 0) {
             holder.number.setText("");
             holder.text.setText(R.string.move_list_start);
+            holder.time.setText("");
         } else {
             holder.number.setText(String.format(Locale.JAPANESE, "%d", ply));
             holder.text.setText(describeMove(ply - 1));
+            int seconds = record.timeSeconds(ply - 1);
+            holder.time.setText(String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60));
         }
-        if (record.node(record.nodeIdAtPly(ply)).childIds().size() > 1) {
-            holder.text.append(holder.itemView.getContext().getString(R.string.branch_point_marker));
-        }
+        boolean hasBranch = record.node(record.nodeIdAtPly(ply)).childIds().size() > 1;
+        holder.text.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null,
+                hasBranch ? AppCompatResources.getDrawable(holder.itemView.getContext(), R.drawable.ic_move_branch) : null,
+                null);
+        holder.text.setContentDescription(hasBranch
+                ? holder.text.getText() + " " + holder.itemView.getContext().getString(R.string.branch_point_marker)
+                : null);
         PositionAnalysis a = analysis.get(ply);
         holder.winRate.setText(EvaluationLabel.winRate(a));
         holder.score.setText(EvaluationLabel.score(a));
+        // Activated marks the subtle stripe; selected always takes priority in the drawable.
+        holder.itemView.setActivated(ply > 0 && ply % 2 == 0);
         holder.itemView.setSelected(ply == currentPly);
         holder.itemView.setOnClickListener(v -> listener.onPlySelected(ply));
     }
@@ -142,6 +152,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
     static final class RowHolder extends RecyclerView.ViewHolder {
         final TextView number;
         final TextView text;
+        final TextView time;
         final TextView winRate;
         final TextView score;
 
@@ -149,6 +160,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
             super(itemView);
             number = itemView.findViewById(R.id.move_number);
             text = itemView.findViewById(R.id.move_text);
+            time = itemView.findViewById(R.id.move_time);
             winRate = itemView.findViewById(R.id.move_win_rate);
             score = itemView.findViewById(R.id.move_score);
         }
