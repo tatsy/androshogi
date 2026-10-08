@@ -152,7 +152,7 @@ public class GameListActivityTest {
                     icon.draw(new Canvas(bitmap));
                     int foreground = bitmap.getPixel(12, 12);
                     assertEquals(255, Color.alpha(foreground));
-                    int background = MaterialColors.getColor(toolbar, R.attr.colorSurface);
+                    int background = MaterialColors.getColor(toolbar, com.google.android.material.R.attr.colorSurface);
                     double fg = Color.luminance(foreground), bg = Color.luminance(background);
                     double contrast = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
                     assertTrue("Delete icon must contrast with the toolbar", contrast >= 3.0);
