@@ -27,6 +27,8 @@ final class KifFileName {
         for (int offset = start, count = 0; offset < end && count < MAX_NAME_CODE_POINTS; count++) {
             int ch = input.codePointAt(offset);
             offset += Character.charCount(ch);
+            // Hyphens are valid in filenames, but the requested naming convention
+            // uses underscores throughout, including within player handles.
             if (Character.isISOControl(ch) || Character.isWhitespace(ch) || Character.isSpaceChar(ch)
                     || ch == '-' || "/\\:*?\"<>|".indexOf(ch) >= 0) {
                 name.append('_');
