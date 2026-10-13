@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Move list row: a ripple on tap, and a tinted band for the position on the board. -->
+<!-- Selection takes priority over the activated (even-ply) stripe; taps retain a ripple. -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="?attr/colorControlHighlight">
     <item>
@@ -8,6 +8,11 @@
                 <shape>
                     <solid android:color="?attr/colorSecondaryContainer" />
                     <corners android:radius="4dp" />
+                </shape>
+            </item>
+            <item android:state_activated="true">
+                <shape>
+                    <solid android:color="@color/move_row_stripe" />
                 </shape>
             </item>
             <item android:drawable="@android:color/transparent" />

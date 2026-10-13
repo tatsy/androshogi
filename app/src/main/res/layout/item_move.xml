@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- One move of the record: number, move in kanji, then black's win rate and score after it. -->
+<!-- One move: number, notation with a branch icon, time spent, black's win rate and score. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingHorizontal="12dp"
+    android:paddingHorizontal="4dp"
     android:paddingVertical="1dp"
     android:background="@drawable/move_row_background"
     android:clickable="true"
@@ -14,7 +14,7 @@
     <TextView
         android:id="@+id/move_number"
         style="@style/MoveListCell"
-        android:layout_width="32dp"
+        android:layout_width="28dp"
         android:textAlignment="viewEnd"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -23,7 +23,16 @@
         style="@style/MoveListCell"
         android:layout_width="0dp"
         android:layout_weight="1"
-        android:layout_marginStart="10dp" />
+        android:layout_marginStart="4dp"
+        android:drawablePadding="2dp" />
+
+    <TextView
+        android:id="@+id/move_time"
+        style="@style/MoveListCell"
+        android:layout_width="44dp"
+        android:layout_marginStart="4dp"
+        android:textAlignment="viewEnd"
+        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <TextView
         android:id="@+id/move_win_rate"

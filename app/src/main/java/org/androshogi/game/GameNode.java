@@ -33,6 +33,10 @@ public final class GameNode {
 
     // Only GameRecord mutates topology; views and serializers receive read-only nodes.
     void addChild(long childId) { childIds.add(childId); }
+    void removeChild(long childId) {
+        childIds.remove(Long.valueOf(childId));
+        if (Long.valueOf(childId).equals(mainChildId)) mainChildId = null;
+    }
     void setMainChild(Long childId) { mainChildId = childId; }
     void clearChildren() { childIds.clear(); mainChildId = null; }
 }

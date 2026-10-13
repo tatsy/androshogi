@@ -377,7 +377,7 @@ public class BoardView extends View implements EngineUpdateListener {
         if (!suggestedMoves.isEmpty()) {
             int nSuggestion = suggestedMoves.size();
             for (int i = 0; i < nSuggestion; i++) {
-                float alpha = 0.2f + 0.8f * ((float)(nSuggestion - i - 1) / nSuggestion);
+                float alpha = Math.max(0.2f, 0.9f - 0.1f * i);
                 drawMoveArrow(canvas, suggestedMoves.get(i),
                         Color.argb(alpha, 1.0f, 0.0f, 0.0f), 30 - i * 4);
             }
@@ -512,6 +512,9 @@ public class BoardView extends View implements EngineUpdateListener {
     }
 
     public boolean forwardBoard() {
+        int previousLength = record.length();
+        record.prepareForward();
+        if (record.length() != previousLength) notifyRecordChanged();
         int move = record.nextMove();
         if (move != Shogi.MOVE_NONE) {
             record.forward();

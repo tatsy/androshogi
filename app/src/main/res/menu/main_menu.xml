@@ -10,6 +10,12 @@
         <item
             android:id="@+id/game_list"
             android:title="@string/game_list"/>
+        <item
+            android:id="@+id/edit_player_names"
+            android:title="@string/edit_player_names"/>
+        <item
+            android:id="@+id/paste_kifu"
+            android:title="@string/paste_kifu"/>
     </group>
 
     <!-- KIF の入出力: 読み込みから保存・共有の順 -->
@@ -17,9 +23,6 @@
         <item
             android:id="@+id/open_kifu"
             android:title="@string/open_kifu"/>
-        <item
-            android:id="@+id/paste_kifu"
-            android:title="@string/paste_kifu"/>
         <item
             android:id="@+id/save_kifu"
             android:title="@string/save_kifu"/>
@@ -45,6 +48,15 @@
         <item
             android:id="@+id/return_main_line"
             android:title="@string/return_main_line"/>
+        <item
+            android:id="@+id/delete_last_move"
+            android:title="@string/delete_last_move"/>
+        <item
+            android:id="@+id/undo_delete_move"
+            android:title="@string/undo_delete_move"/>
+        <item
+            android:id="@+id/copy_sfen"
+            android:title="@string/copy_sfen"/>
     </group>
 
     <!-- 検討 -->

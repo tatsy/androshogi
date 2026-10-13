@@ -41,7 +41,7 @@ public class GameJsonTest {
         GameAnalysis analysis = new GameAnalysis(record);
         SavedGame game = new SavedGame("root-comment", 100, 200, record, analysis);
         String json = GameJson.write(game);
-        assertEquals(2, new org.json.JSONObject(json).getInt("format"));
+        assertEquals(GameJson.FORMAT, new org.json.JSONObject(json).getInt("format"));
         SavedGame back = GameJson.read(json);
         assertEquals(comment, back.record.startComment());
         assertEquals("初手のコメント", back.record.comment(0));
@@ -233,6 +233,39 @@ public class GameJsonTest {
     private static void assertInvalidTree(org.json.JSONObject root) {
         org.junit.Assert.assertThrows(JSONException.class, () -> GameJson.read(root.toString()));
         org.junit.Assert.assertThrows(JSONException.class, () -> GameJson.readSummary(root.toString()));
+    }
+
+    @Test public void roundTripsEndedMainAndUnselectedForkWithSurvivingAnalysis() throws JSONException {
+        GameRecord r = new GameRecord(START, Arrays.asList(11, 22), null, null, "B", "W");
+        long parent = r.nodeIdAtPly(1);
+        long a = r.addVariation(parent, 99, 17, "a");
+        long b = r.addVariation(parent, 88, 9, "b");
+        GameAnalysis analysis = new GameAnalysis(r);
+        analysis.putByNode(a, PositionAnalysis.from("a", Collections.emptyList(), null));
+        analysis.putByNode(b, PositionAnalysis.from("b", Collections.emptyList(), null));
+        assertTrue(r.deleteCurrentLeaf());
+        SavedGame back = GameJson.read(GameJson.write(new SavedGame("deleted-main", 1, 2, r, analysis)));
+        assertEquals(parent, back.record.currentNodeId());
+        assertNull(back.record.node(parent).mainChildId());
+        assertNull(back.record.selectedChildId(parent));
+        assertEquals(Arrays.asList(a, b), back.record.node(parent).childIds());
+        assertEquals(2, back.analysis.count());
+        assertEquals("a", back.record.node(a).comment());
+        assertEquals(17, back.record.node(a).timeSeconds());
+        back.record.selectNode(b);
+        SavedGame selected = GameJson.read(GameJson.write(back));
+        assertEquals(b, selected.record.currentNodeId());
+        selected.record.selectMainLine();
+        assertEquals(parent, selected.record.currentNodeId());
+        assertEquals(Collections.singletonList(11), selected.record.moves());
+    }
+
+    @Test public void continuesReadingFormatTwoRecords() throws JSONException {
+        org.json.JSONObject old = new org.json.JSONObject(GameJson.write(sampleGame()));
+        old.put("format", 2);
+        SavedGame back = GameJson.read(old.toString());
+        assertEquals(sampleGame().record.moves(), back.record.moves());
+        assertEquals(sampleGame().analysis.count(), back.analysis.count());
     }
 
 }

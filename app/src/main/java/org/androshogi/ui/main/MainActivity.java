@@ -116,6 +116,8 @@ public class MainActivity extends AppCompatActivity {
 
     /** The game shown on the board and its persistent identity. */
     private GameSession game;
+    @Nullable
+    private GameSession.LeafDeletion leafUndo;
     private GameStore gameStore;
     /** Serializes disk access so saves cannot overtake one another. */
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -126,6 +128,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Nullable
     private String pendingKifExport;
+    @Nullable
+    private String pendingKifFileName;
     private int pendingKifFormat;
 
     /** Brings back the choice made on the saved-game list. */
@@ -159,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.OpenDocumentTree(), uri -> {
                 if (uri == null) {
                     pendingKifExport = null;
+                    pendingKifFileName = null;
                     return;
                 }
                 if (!AppSettings.setKifSaveFolder(this, uri)) {
@@ -211,6 +216,8 @@ public class MainActivity extends AppCompatActivity {
         clipboard = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
 
         // Set event listeners
+        blackInfoView.setOnClickListener(v -> editPlayerNames());
+        whiteInfoView.setOnClickListener(v -> editPlayerNames());
         Button menuButton = findViewById(R.id.menu_button);
         menuButton.setOnClickListener(this::showPopupMenu);
         Button flipButton = findViewById(R.id.flip_button);
@@ -225,10 +232,20 @@ public class MainActivity extends AppCompatActivity {
                 boardView.backwardBoard();
             }
         });
+        backButton.setOnLongClickListener(v -> {
+            deleteLastMove();
+            // Consume even an unavailable deletion so release does not move the cursor.
+            return true;
+        });
         Button foreButton = findViewById(R.id.forward_button);
         foreButton.setOnClickListener(v -> {
             if (requireIdleNavigation()) {
-                boardView.forwardBoard();
+                GameRecord record = game.record();
+                if (record.isAtEnd() && record.node(record.currentNodeId()).childIds().size() > 1) {
+                    showBranchDialog();
+                } else {
+                    boardView.forwardBoard();
+                }
             }
         });
 
@@ -251,6 +268,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onRecordChanged() {
+                discardInvalidLeafUndo();
                 // A user edit wins over any game file that is still being loaded.
                 invalidatePendingGameLoad();
                 moveListAdapter.recordChanged();
@@ -518,6 +536,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        clearLeafUndo();
         // Leaving the engine process behind would keep several hundred MB of
         // evaluation tables resident, so always quit it.
         if (analysisRun != null) {
@@ -538,11 +557,17 @@ public class MainActivity extends AppCompatActivity {
                 && record.node(record.currentNodeId()).childIds().size() > 1);
         popupMenu.getMenu().findItem(R.id.return_main_line).setEnabled(analysisRun == null
                 && !record.isMainLineSelected());
+        popupMenu.getMenu().findItem(R.id.delete_last_move).setEnabled(canDeleteLastMove());
+        popupMenu.getMenu().findItem(R.id.undo_delete_move).setEnabled(canUndoLastMove());
+        popupMenu.getMenu().findItem(R.id.edit_player_names).setEnabled(!initialGameLoadPending);
         MenuCompat.setGroupDividerEnabled(popupMenu.getMenu(), true);
         popupMenu.setOnMenuItemClickListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.new_game) {
                 newGame();
+                return true;
+            } else if (itemId == R.id.edit_player_names) {
+                editPlayerNames();
                 return true;
             } else if (itemId == R.id.start_board) {
                 if (requireIdleNavigation()) {
@@ -563,6 +588,15 @@ public class MainActivity extends AppCompatActivity {
                     game.record().selectMainLine();
                     showRecord();
                 }
+                return true;
+            } else if (itemId == R.id.delete_last_move) {
+                deleteLastMove();
+                return true;
+            } else if (itemId == R.id.undo_delete_move) {
+                undoLastMoveDeletion();
+                return true;
+            } else if (itemId == R.id.copy_sfen) {
+                copySfen();
                 return true;
             } else if (itemId == R.id.auto_analyze) {
                 //　自動検討
@@ -610,6 +644,55 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
         popupMenu.show();
+    }
+
+    /** Updates only the current game's names, keeping its position and analysis intact. */
+    private void editPlayerNames() {
+        if (initialGameLoadPending) return;
+        GameRecord record = game.record();
+        PlayerNamesDialog.show(this, record.blackName(), record.whiteName(), (black, white) -> {
+            if (game.record() != record) return;
+            clearLeafUndo();
+            record.setPlayerNames(black, white);
+            refresh();
+            saveGame();
+        });
+    }
+
+    private boolean canDeleteLastMove() {
+        return !initialGameLoadPending && analysisRun == null && !engine.isSearching()
+                && game.record().canDeleteCurrentLeaf();
+    }
+
+    private void clearLeafUndo() {
+        leafUndo = null;
+    }
+
+    private void discardInvalidLeafUndo() {
+        if (!game.canUndoLeafDeletion(leafUndo)) clearLeafUndo();
+    }
+
+    private boolean canUndoLastMove() {
+        return !initialGameLoadPending && analysisRun == null && !engine.isSearching()
+                && game.canUndoLeafDeletion(leafUndo);
+    }
+
+    private void deleteLastMove() {
+        if (!canDeleteLastMove()) return;
+        GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
+        if (deletion == null) return;
+        leafUndo = deletion;
+        invalidatePendingGameLoad();
+        showRecord();
+        saveGame();
+    }
+
+    private void undoLastMoveDeletion() {
+        if (!canUndoLastMove() || !game.undoLeafDeletion(leafUndo)) return;
+        clearLeafUndo();
+        invalidatePendingGameLoad();
+        showRecord();
+        saveGame();
     }
 
     /** Chooses the next move from the currently displayed branch point. */
@@ -728,6 +811,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Shows the session's record everywhere: board, move list and name rows. */
     private void showRecord() {
+        discardInvalidLeafUndo();
         GameRecord current = game.record();
         moveListAdapter.setRecord(current);
         graphView.setData(current, game.analysis());
@@ -780,7 +864,9 @@ public class MainActivity extends AppCompatActivity {
                     storeResult(searched, ply, nodeId, result);
                     setHintButtonRunning(false);
                 });
-        if (!started) {
+        if (started) {
+            clearLeafUndo();
+        } else {
             setHintButtonRunning(false);
         }
     }
@@ -958,14 +1044,19 @@ public class MainActivity extends AppCompatActivity {
         if (text == null) {
             return;
         }
+        GameRecord record = game.record();
+        String fileNameBase = KifFileName.baseName(game.createdAt(),
+                record.blackName(), record.whiteName());
         boolean hasAnalysis = false;
         for (int ply = 0; ply <= game.record().length(); ply++) {
             if (game.analysis().has(ply)) { hasAnalysis = true; break; }
         }
         KifExportDialog.show(this, hasAnalysis, (choice, includeAnalysis) -> {
+            if (game.record() != record) return;
             pendingKifExport = includeAnalysis
                     ? KifWriter.write(game.record(), game.createdAt(), game.analysis()) : text;
             pendingKifFormat = choice;
+            pendingKifFileName = fileNameBase + (choice == 0 ? ".kif" : ".kifu");
             if (AppSettings.kifSaveFolder(this) == null) {
                 promptForKifFolder();
             } else {
@@ -983,15 +1074,19 @@ public class MainActivity extends AppCompatActivity {
                 .setNeutralButton(R.string.kifu_folder_skip,
                         (dialog, which) -> launchPendingKifExport())
                 .setNegativeButton(android.R.string.cancel,
-                        (dialog, which) -> pendingKifExport = null)
+                        (dialog, which) -> {
+                            pendingKifExport = null;
+                            pendingKifFileName = null;
+                        })
                 .show();
     }
 
     private void launchPendingKifExport() {
+        if (pendingKifExport == null || pendingKifFileName == null) return;
         if (pendingKifFormat == 0) {
-            createKifLauncher.launch("AndroShogi.kif");
+            createKifLauncher.launch(pendingKifFileName);
         } else {
-            createKifuLauncher.launch("AndroShogi.kifu");
+            createKifuLauncher.launch(pendingKifFileName);
         }
     }
 
@@ -999,6 +1094,7 @@ public class MainActivity extends AppCompatActivity {
     private void exportKif(@Nullable Uri uri, Charset charset) {
         String text = pendingKifExport;
         pendingKifExport = null;
+        pendingKifFileName = null;
         if (uri == null) {
             return;
         }
@@ -1032,6 +1128,15 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         });
+    }
+
+    /** Copies only the displayed position; rotating the board does not change its SFEN. */
+    private void copySfen() {
+        clipboard.setPrimaryClip(ClipData.newPlainText("SFEN", boardView.getSFEN()));
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            // Android 13 and later show their own confirmation.
+            Toast.makeText(this, R.string.sfen_copied, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void copyKif() {
@@ -1223,6 +1328,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Connects the view and engine to the UI-independent analysis state machine. */
     private void startAutoAnalysis(int timePerMoveMs, int multiPv) {
+        clearLeafUndo();
         final GameRecord searchedRecord = game.record();
         final EngineSession session = engine;
         AnalysisController.Searcher searcher = new AnalysisController.Searcher() {
