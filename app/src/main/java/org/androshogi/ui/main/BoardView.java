@@ -377,7 +377,7 @@ public class BoardView extends View implements EngineUpdateListener {
         if (!suggestedMoves.isEmpty()) {
             int nSuggestion = suggestedMoves.size();
             for (int i = 0; i < nSuggestion; i++) {
-                float alpha = Math.max(0.2f, 0.9f - 0.1f * i);
+                float alpha = Math.max(0.2f, 0.9f * (float) Math.pow(0.6, i));
                 drawMoveArrow(canvas, suggestedMoves.get(i),
                         Color.argb(alpha, 1.0f, 0.0f, 0.0f), 30 - i * 4);
             }
