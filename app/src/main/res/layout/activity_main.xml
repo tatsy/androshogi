@@ -127,7 +127,7 @@
             app:icon="@drawable/ic_cancel"/>
     </LinearLayout>
 
-    <!-- 情報エリアの切り替え: コメント / 読み筋 / 棋譜 / グラフ -->
+    <!-- 情報エリアの切り替え: コメント / 読み筋 / 棋譜 / グラフ / ピン留め -->
     <com.google.android.material.button.MaterialButtonToggleGroup
         android:id="@+id/info_tabs"
         android:layout_width="match_parent"
@@ -158,6 +158,11 @@
             style="@style/InfoTabButton"
             android:id="@+id/tab_graph"
             android:text="@string/tab_graph"/>
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/InfoTabButton"
+            android:id="@+id/tab_pinned"
+            android:text="@string/tab_pinned"/>
     </com.google.android.material.button.MaterialButtonToggleGroup>
 
     <!-- 情報エリア。トグルで選ばれた 1 つだけを表示する -->
@@ -190,13 +195,62 @@
                 android:textIsSelectable="true" />
         </ScrollView>
 
-        <org.androshogi.ui.main.EngineView
-            android:id="@+id/engine_view"
+        <LinearLayout
+            android:id="@+id/reading_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingHorizontal="8dp"
-            android:textSize="12sp"
-            android:fontFamily="@font/noto_sans_jp" />
+            android:orientation="vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/pin_reading_button"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:minHeight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingVertical="2dp"
+                android:textSize="12sp"
+                android:fontFamily="@font/noto_sans_jp"
+                android:enabled="false"
+                android:text="@string/pin_reading" />
+
+            <ScrollView
+                android:id="@+id/reading_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <org.androshogi.ui.main.EngineView
+                    android:id="@+id/engine_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="8dp"
+                    android:paddingBottom="8dp"
+                    android:textSize="12sp"
+                    android:fontFamily="@font/noto_sans_jp" />
+            </ScrollView>
+        </LinearLayout>
+
+        <ScrollView
+            android:id="@+id/pinned_panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/pinned_reading_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:textSize="12sp"
+                android:fontFamily="@font/noto_sans_jp"
+                android:textIsSelectable="true"
+                android:text="@string/pinned_reading_empty" />
+        </ScrollView>
 
         <!-- Padded so that a highlighted row stays inside the frame's stroke. -->
         <androidx.recyclerview.widget.RecyclerView

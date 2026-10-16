@@ -24,6 +24,7 @@ public class EngineView extends AppCompatTextView implements EngineUpdateListene
 
     /** True: scores from black's point of view. False: from the side to move, as the engine reports. */
     private boolean scoreFromBlack = true;
+    private boolean hasVariations;
     /**
      * The move that led to the position being shown, so that a first variation
      * move onto the same square reads 同. The engine's board is built from an
@@ -48,8 +49,19 @@ public class EngineView extends AppCompatTextView implements EngineUpdateListene
         this.previousMove = move;
     }
 
+    public boolean hasVariations() {
+        return hasVariations;
+    }
+
     @Override
     public void onEngineUpdated(Board board, List<EngineInfo> infos) {
+        hasVariations = false;
+        for (EngineInfo info : infos) {
+            if (info.hasPv()) {
+                hasVariations = true;
+                break;
+            }
+        }
         if (infos.isEmpty()) {
             // A new search has started, or the engine reported nothing at all.
             setText("");

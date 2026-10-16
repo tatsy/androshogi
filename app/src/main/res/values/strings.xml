@@ -72,6 +72,10 @@
     <string name="tab_reading">読み筋</string>
     <string name="tab_record">棋譜</string>
     <string name="tab_graph">グラフ</string>
+    <string name="tab_pinned">ピン留め</string>
+    <string name="pin_reading">読み筋をピン留め</string>
+    <string name="pinned_reading_title">%1$d手目の局面の読み筋</string>
+    <string name="pinned_reading_empty">ピン留めした読み筋はありません</string>
     <string name="move_list_start">開始局面</string>
 
     <!-- 新規 -->

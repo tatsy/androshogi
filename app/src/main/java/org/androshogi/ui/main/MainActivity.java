@@ -96,6 +96,11 @@ public class MainActivity extends AppCompatActivity {
     @Nullable
     private PositionAnalysis shownEvaluation;
     private EngineView engineView;
+    private View readingPanel;
+    private View readingScroll;
+    private View pinReadingButton;
+    private View pinnedPanel;
+    private TextView pinnedReadingView;
     private View commentPanel;
     private TextView commentView;
     private RecyclerView moveListView;
@@ -277,6 +282,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         engineView = findViewById(R.id.engine_view);
+        readingPanel = findViewById(R.id.reading_panel);
+        readingScroll = findViewById(R.id.reading_scroll);
+        pinReadingButton = findViewById(R.id.pin_reading_button);
+        pinnedPanel = findViewById(R.id.pinned_panel);
+        pinnedReadingView = findViewById(R.id.pinned_reading_view);
+        pinReadingButton.setOnClickListener(v -> pinReading());
         commentPanel = findViewById(R.id.comment_panel);
         commentView = findViewById(R.id.comment_view);
 
@@ -369,7 +380,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             boardView.onEngineUpdated(board, infos);
-            engineView.onEngineUpdated(board, infos);
+            showEngineReading(board, infos);
             showEvaluation(PositionAnalysis.from(board.getSFEN(), infos, null));
         });
 
@@ -524,6 +535,7 @@ public class MainActivity extends AppCompatActivity {
 
     /** Replaces the in-memory game; all disk access has already happened. */
     private void applySavedGame(SavedGame saved) {
+        clearPinnedReading();
         game.load(saved);
         showRecord();
     }
@@ -767,6 +779,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void startFreshGame(boolean forceNewId) {
         invalidatePendingGameLoad();
+        clearPinnedReading();
         game.startNew(newEmptyRecord(), forceNewId);
         showRecord();
     }
@@ -826,7 +839,8 @@ public class MainActivity extends AppCompatActivity {
         boolean showMoves = tabId == R.id.tab_record;
         boolean showGraph = tabId == R.id.tab_graph;
         commentPanel.setVisibility(showComment ? View.VISIBLE : View.GONE);
-        engineView.setVisibility(tabId == R.id.tab_reading ? View.VISIBLE : View.GONE);
+        readingPanel.setVisibility(tabId == R.id.tab_reading ? View.VISIBLE : View.GONE);
+        pinnedPanel.setVisibility(tabId == R.id.tab_pinned ? View.VISIBLE : View.GONE);
         moveListView.setVisibility(showMoves ? View.VISIBLE : View.GONE);
         graphView.setVisibility(showGraph ? View.VISIBLE : View.GONE);
         if (showMoves) {
@@ -866,6 +880,8 @@ public class MainActivity extends AppCompatActivity {
                 });
         if (started) {
             clearLeafUndo();
+            readingScroll.scrollTo(0, 0);
+            infoTabs.check(R.id.tab_reading);
         } else {
             setHintButtonRunning(false);
         }
@@ -922,6 +938,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onPositionChanged() {
+        readingScroll.scrollTo(0, 0);
         if (analysisRun == null && engine.isSearching()) {
             // A manual search for the position the user just left. Its result
             // is still stored when it arrives, but the engine is wanted here now.
@@ -999,7 +1016,7 @@ public class MainActivity extends AppCompatActivity {
         Board board = new Board(sfen);
         try {
             boardView.onEngineUpdated(board, infos);
-            engineView.onEngineUpdated(board, infos);
+            showEngineReading(board, infos);
         } finally {
             board.cleanup();
         }
@@ -1008,6 +1025,25 @@ public class MainActivity extends AppCompatActivity {
             // Make clear that this is a finished search, not the engine thinking.
             engineView.setText(getString(R.string.analysis_stored_marker) + "\n" + engineView.getText());
         }
+    }
+
+    private void showEngineReading(Board board, List<EngineInfo> infos) {
+        engineView.onEngineUpdated(board, infos);
+        pinReadingButton.setEnabled(engineView.hasVariations());
+    }
+
+    /** Capture rendered text: later positions and engine updates must not reinterpret it. */
+    private void pinReading() {
+        if (!engineView.hasVariations()) return;
+        pinnedReadingView.setText(getString(R.string.pinned_reading_title,
+                game.record().currentPly()) + "\n\n" + engineView.getText().toString());
+        pinnedPanel.scrollTo(0, 0);
+        infoTabs.check(R.id.tab_pinned);
+    }
+
+    private void clearPinnedReading() {
+        pinnedReadingView.setText(R.string.pinned_reading_empty);
+        pinnedPanel.scrollTo(0, 0);
     }
 
     private void pasteFromClipboard() {
@@ -1269,6 +1305,7 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, String.format("後手は「%s」\n", parser.whiteName()));
         saveGame();
         invalidatePendingGameLoad();
+        clearPinnedReading();
         game.startNew(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
                 parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment()), false);
         showRecord();
