@@ -59,6 +59,22 @@
             style="@style/PlayerScoreStyle"/>
     </LinearLayout>
 
+    <!-- 現在の局面に至った指し手。タブによらず常に表示する -->
+    <TextView
+        android:id="@+id/current_move_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="0dp"
+        android:includeFontPadding="false"
+        android:gravity="top|start"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="12sp"
+        android:fontFamily="@font/noto_sans_jp"
+        android:text="@string/move_list_start" />
+
     <!-- 操作ボタン -->
     <LinearLayout
         android:id="@+id/button_panel"
@@ -66,7 +82,8 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:minHeight="0dp"
-        android:padding="8dp">
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp">
 
         <com.google.android.material.button.MaterialButton
             style="@style/IconButton"
@@ -134,7 +151,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_marginHorizontal="8dp"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="2dp"
         app:singleSelection="true"
         app:selectionRequired="true"
         app:checkedButton="@id/tab_reading">

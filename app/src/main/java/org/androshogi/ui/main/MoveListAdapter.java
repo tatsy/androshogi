@@ -143,7 +143,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
     }
 
     /** "☗７六歩", "☖同歩", "☗５八金右" for the move at {@code index} of the record. */
-    private String describeMove(int index) {
+    String describeMove(int index) {
         boolean white = whiteMovesFirst != (index % 2 == 1);
         String text = index < notations.size() ? notations.get(index) : new Move(record.move(index)).toString();
         return (white ? "☖" : "☗") + text;

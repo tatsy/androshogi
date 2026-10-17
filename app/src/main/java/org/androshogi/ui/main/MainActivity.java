@@ -92,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView whiteInfoView;
     private TextView blackScoreView;
     private TextView whiteScoreView;
+    private TextView currentMoveView;
     /** Evaluation currently shown in the player rows; null when there is none. */
     @Nullable
     private PositionAnalysis shownEvaluation;
@@ -211,6 +212,7 @@ public class MainActivity extends AppCompatActivity {
         whiteInfoView = findViewById(R.id.white_info_view);
         blackScoreView = findViewById(R.id.black_score_view);
         whiteScoreView = findViewById(R.id.white_score_view);
+        currentMoveView = findViewById(R.id.current_move_view);
 
         // Show an empty board immediately; the previous session is loaded off the UI thread.
         gameStore = new GameStore(this);
@@ -948,6 +950,9 @@ public class MainActivity extends AppCompatActivity {
         engineView.setPreviousMove(game.record().lastMove());
         showStoredAnalysis();
         moveListAdapter.setCurrentPly(game.record().currentPly());
+        int ply = game.record().currentPly();
+        currentMoveView.setText(ply == 0 ? getString(R.string.move_list_start)
+                : getString(R.string.current_move_format, ply, moveListAdapter.describeMove(ply - 1)));
         graphView.setCurrentPly(game.record().currentPly());
         showCurrentComment();
         if (moveListView.getVisibility() == View.VISIBLE) {
