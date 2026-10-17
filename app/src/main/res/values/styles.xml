@@ -20,6 +20,7 @@
     <style name="IconButton" parent="DefaultButton">
         <item name="android:textSize">8sp</item>
         <item name="android:includeFontPadding">false</item>
+        <item name="android:paddingVertical">2dp</item>
         <item name="android:insetLeft">0dp</item>
         <item name="android:insetRight">0dp</item>
         <item name="android:insetTop">0dp</item>
@@ -36,7 +37,7 @@
         <item name="android:textAlignment">viewStart</item>
         <item name="android:fontFamily">@font/noto_sans_jp</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:paddingVertical">0dp</item>
+        <item name="android:paddingVertical">2dp</item>
         <item name="android:paddingHorizontal">8dp</item>
         <item name="android:background">?attr/colorSurfaceVariant</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
@@ -50,7 +51,7 @@
         <item name="android:minHeight">0dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:paddingHorizontal">2dp</item>
-        <item name="android:paddingVertical">1dp</item>
+        <item name="android:paddingVertical">3dp</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:maxLines">1</item>
         <item name="android:insetTop">0dp</item>
