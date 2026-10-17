@@ -235,6 +235,7 @@
                 android:textSize="12sp"
                 android:fontFamily="@font/noto_sans_jp"
                 android:enabled="false"
+                android:textColor="@color/pin_reading_text"
                 android:text="@string/pin_reading" />
 
             <ScrollView
