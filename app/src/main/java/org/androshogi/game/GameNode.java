@@ -10,7 +10,7 @@ public final class GameNode {
     private final Long parentId;
     private final int move;
     private final int timeSeconds;
-    private final String comment;
+    private String comment;
     private final List<Long> childIds = new ArrayList<>();
     private Long mainChildId;
 
@@ -32,6 +32,7 @@ public final class GameNode {
     public Long mainChildId() { return mainChildId; }
 
     // Only GameRecord mutates topology; views and serializers receive read-only nodes.
+    void setComment(String comment) { this.comment = comment; }
     void addChild(long childId) { childIds.add(childId); }
     void removeChild(long childId) {
         childIds.remove(Long.valueOf(childId));

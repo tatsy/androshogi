@@ -4,6 +4,7 @@ import org.androshogi.shogi.Shogi;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -78,6 +79,13 @@ public class KifWriterTest {
                 + "先手：a\n"
                 + "後手：b\n"
                 + "手数----指手---------消費時間--\n", kif);
+    }
+
+    @Test public void eventNameIsWrittenWhenPresent() {
+        String kif = KifWriter.format(Shogi.STARTING_SFEN, "竜王戦", "藤井", "佐々木",
+                0, Collections.emptyList(), null);
+        assertTrue(kif.contains("棋戦：竜王戦\n"));
+        assertTrue(kif.indexOf("棋戦：") < kif.indexOf("手合割："));
     }
 
     @Test

@@ -95,7 +95,8 @@ public final class KifWriter {
         } finally {
             if (board != null) board.cleanup();
         }
-        return format(record.startSfen(), record.blackName(), record.whiteName(), createdAt, plies, startComment);
+        return format(record.startSfen(), record.eventName(), record.blackName(), record.whiteName(),
+                createdAt, plies, startComment);
     }
 
     /**
@@ -110,11 +111,19 @@ public final class KifWriter {
 
     static String format(String startSfen, String blackName, String whiteName,
                          long createdAt, List<Ply> plies, String startComment) {
+        return format(startSfen, "", blackName, whiteName, createdAt, plies, startComment);
+    }
+
+    static String format(String startSfen, String eventName, String blackName, String whiteName,
+                         long createdAt, List<Ply> plies, String startComment) {
         StringBuilder sb = new StringBuilder();
         sb.append("# ---- AndroShogi 棋譜ファイル ----\n");
         if (createdAt > 0) {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.JAPAN);
             sb.append("開始日時：").append(dateFormat.format(new Date(createdAt))).append('\n');
+        }
+        if (eventName != null && !eventName.isEmpty()) {
+            sb.append("棋戦：").append(eventName).append('\n');
         }
         String handicap = handicapName(startSfen);
         if (handicap != null) {

@@ -110,6 +110,7 @@ public class MainActivity extends AppCompatActivity {
     private MaterialButtonToggleGroup infoTabs;
     private MaterialButton hintButton;
     private ClipboardManager clipboard;
+    private MoveSoundPlayer moveSoundPlayer;
     private EngineSession engine;
     /** Revision of the evaluation data loaded by this process. */
     private long engineEvaluationRevision;
@@ -208,6 +209,8 @@ public class MainActivity extends AppCompatActivity {
 
         // Components
         boardView = findViewById(R.id.board_view);
+        moveSoundPlayer = new MoveSoundPlayer(this);
+        boardView.setOnMovePlayedListener(moveSoundPlayer::play);
         blackInfoView = findViewById(R.id.black_info_view);
         whiteInfoView = findViewById(R.id.white_info_view);
         blackScoreView = findViewById(R.id.black_score_view);
@@ -223,8 +226,8 @@ public class MainActivity extends AppCompatActivity {
         clipboard = (ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
 
         // Set event listeners
-        blackInfoView.setOnClickListener(v -> editPlayerNames());
-        whiteInfoView.setOnClickListener(v -> editPlayerNames());
+        blackInfoView.setOnClickListener(v -> editGameInformation());
+        whiteInfoView.setOnClickListener(v -> editGameInformation());
         Button menuButton = findViewById(R.id.menu_button);
         menuButton.setOnClickListener(this::showPopupMenu);
         Button flipButton = findViewById(R.id.flip_button);
@@ -292,6 +295,7 @@ public class MainActivity extends AppCompatActivity {
         pinReadingButton.setOnClickListener(v -> pinReading());
         commentPanel = findViewById(R.id.comment_panel);
         commentView = findViewById(R.id.comment_view);
+        findViewById(R.id.edit_comment_button).setOnClickListener(v -> editCurrentComment());
 
         // Move list; tapping a row jumps to that position.
         moveListView = findViewById(R.id.move_list_view);
@@ -558,6 +562,7 @@ public class MainActivity extends AppCompatActivity {
             analysisRun = null;
         }
         engine.shutdown();
+        moveSoundPlayer.release();
         // Do not cancel the onStop() save that may already be queued.
         io.shutdown();
         super.onDestroy();
@@ -581,7 +586,7 @@ public class MainActivity extends AppCompatActivity {
                 newGame();
                 return true;
             } else if (itemId == R.id.edit_player_names) {
-                editPlayerNames();
+                editGameInformation();
                 return true;
             } else if (itemId == R.id.start_board) {
                 if (requireIdleNavigation()) {
@@ -660,14 +665,16 @@ public class MainActivity extends AppCompatActivity {
         popupMenu.show();
     }
 
-    /** Updates only the current game's names, keeping its position and analysis intact. */
-    private void editPlayerNames() {
+    /** Updates the current game's KIF information, keeping its position and analysis intact. */
+    private void editGameInformation() {
         if (initialGameLoadPending) return;
         GameRecord record = game.record();
-        PlayerNamesDialog.show(this, record.blackName(), record.whiteName(), (black, white) -> {
+        PlayerNamesDialog.show(this, record.eventName(), record.blackName(), record.whiteName(),
+                (event, black, white) -> {
             if (game.record() != record) return;
             clearLeafUndo();
-            record.setPlayerNames(black, white);
+            record.setGameInformation(event, black, white);
+            moveListAdapter.refreshLabels();
             refresh();
             saveGame();
         });
@@ -969,6 +976,25 @@ public class MainActivity extends AppCompatActivity {
         commentPanel.scrollTo(0, 0);
     }
 
+    /** Edits the comment attached to the currently displayed position. */
+    private void editCurrentComment() {
+        if (initialGameLoadPending) return;
+        if (analysisRun != null) {
+            Toast.makeText(this, R.string.engine_busy, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        GameRecord record = game.record();
+        long nodeId = record.currentNodeId();
+        String comment = record.node(nodeId).comment();
+        CommentEditDialog.show(this, comment, edited -> {
+            if (game.record() != record || record.node(nodeId) == null) return;
+            if (!record.setComment(nodeId, edited)) return;
+            clearLeafUndo();
+            if (record.currentNodeId() == nodeId) showCurrentComment();
+            saveGame();
+        });
+    }
+
     /**
      * Keeps a finished search under the ply it was started from, unless the
      * record has been replaced or changed at that ply in the meantime.
@@ -1086,7 +1112,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         GameRecord record = game.record();
-        String fileNameBase = KifFileName.baseName(game.createdAt(),
+        String fileNameBase = KifFileName.baseName(game.createdAt(), record.eventName(),
                 record.blackName(), record.whiteName());
         boolean hasAnalysis = false;
         for (int ply = 0; ply <= game.record().length(); ply++) {
@@ -1312,7 +1338,8 @@ public class MainActivity extends AppCompatActivity {
         invalidatePendingGameLoad();
         clearPinnedReading();
         game.startNew(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
-                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment()), false);
+                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment(),
+                parser.eventName()), false);
         showRecord();
         Toast.makeText(this, R.string.kifu_loaded, Toast.LENGTH_SHORT).show();
     }

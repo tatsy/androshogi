@@ -18,13 +18,30 @@
         android:textAlignment="viewEnd"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
-    <TextView
-        android:id="@+id/move_text"
-        style="@style/MoveListCell"
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:layout_marginStart="4dp"
-        android:drawablePadding="2dp" />
+        android:orientation="vertical">
+
+        <!-- Shown only above 開始局面 when the record has a KIF 棋戦 header. -->
+        <TextView
+            android:id="@+id/move_event"
+            style="@style/MoveListCell"
+            android:layout_width="match_parent"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="11sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/move_text"
+            style="@style/MoveListCell"
+            android:layout_width="match_parent"
+            android:drawablePadding="2dp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/move_time"

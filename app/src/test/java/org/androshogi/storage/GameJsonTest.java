@@ -24,6 +24,7 @@ public class GameJsonTest {
     private static SavedGame sampleGame() {
         GameRecord record = new GameRecord(START, Arrays.asList(1001, 1002, 1003),
                 Arrays.asList(12, 0, 7), Arrays.asList("良い手", null, "疑問手"), "先手 太郎", "後手 花子");
+        record.setGameInformation("名人戦", record.blackName(), record.whiteName());
         record.seek(2);
         GameAnalysis analysis = new GameAnalysis(record);
         analysis.put(0, PositionAnalysis.from(START, Arrays.asList(
@@ -57,6 +58,7 @@ public class GameJsonTest {
         assertEquals(1700000001000L, back.updatedAt);
         GameRecord r = back.record;
         assertEquals(START, r.startSfen());
+        assertEquals("名人戦", r.eventName());
         assertEquals("先手 太郎", r.blackName());
         assertEquals("後手 花子", r.whiteName());
         assertEquals(Arrays.asList(1001, 1002, 1003), r.moves());
@@ -125,6 +127,7 @@ public class GameJsonTest {
         assertEquals(0, back.record.timeSeconds(0));
         assertNull(back.record.comment(0));
         assertEquals(0, back.analysis.count());
+        assertEquals("", back.record.eventName());
     }
 
     @Test public void migratesV1RecordAndAnalysisAndResavesWithoutDataLoss() throws Exception {

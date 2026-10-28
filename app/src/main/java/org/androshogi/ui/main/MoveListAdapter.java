@@ -120,7 +120,18 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
             holder.number.setText("");
             holder.text.setText(R.string.move_list_start);
             holder.time.setText("");
+            String eventName = record.eventName();
+            if (eventName == null || eventName.isEmpty()) {
+                holder.event.setText("");
+                holder.event.setVisibility(View.GONE);
+            } else {
+                holder.event.setText(holder.itemView.getContext().getString(
+                        R.string.move_list_event, eventName));
+                holder.event.setVisibility(View.VISIBLE);
+            }
         } else {
+            holder.event.setText("");
+            holder.event.setVisibility(View.GONE);
             holder.number.setText(String.format(Locale.JAPANESE, "%d", ply));
             holder.text.setText(describeMove(ply - 1));
             int seconds = record.timeSeconds(ply - 1);
@@ -151,6 +162,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
 
     static final class RowHolder extends RecyclerView.ViewHolder {
         final TextView number;
+        final TextView event;
         final TextView text;
         final TextView time;
         final TextView winRate;
@@ -159,6 +171,7 @@ public class MoveListAdapter extends RecyclerView.Adapter<MoveListAdapter.RowHol
         RowHolder(View itemView) {
             super(itemView);
             number = itemView.findViewById(R.id.move_number);
+            event = itemView.findViewById(R.id.move_event);
             text = itemView.findViewById(R.id.move_text);
             time = itemView.findViewById(R.id.move_time);
             winRate = itemView.findViewById(R.id.move_win_rate);

@@ -2,6 +2,8 @@ package org.androshogi.ui.main;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
+import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -21,6 +23,7 @@ import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import org.androshogi.R;
 import org.androshogi.game.GameRecord;
+import org.androshogi.kifu.KifWriter;
 import org.androshogi.shogi.Board;
 import org.androshogi.shogi.Move;
 import org.junit.Test;
@@ -31,6 +34,30 @@ import org.junit.runner.RunWith;
 public class MainActivityCommentTest {
     private static final String HEADER = "手合割：平手\n先手：B\n後手：W\n"
             + "手数----指手---------消費時間--\n";
+
+    @Test public void editsMultilineCommentAndExportsItToKif() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> activity.parseShogiData(HEADER + "1 ７六歩(77)\n"));
+            onView(withId(R.id.tab_comment)).perform(click());
+            onView(withId(R.id.edit_comment_button)).perform(click());
+            onView(withId(R.id.comment_edit_text)).perform(
+                    replaceText("編集したコメント\n二行目"), closeSoftKeyboard());
+            onView(withText(R.string.save_comment)).perform(click());
+            onView(withId(R.id.comment_view)).check(
+                    matches(withText("編集したコメント\n二行目")));
+            scenario.onActivity(activity -> {
+                GameRecord record = ((BoardView) activity.findViewById(R.id.board_view)).getRecord();
+                assertEquals("編集したコメント\n二行目", record.comment(0));
+                String kif = KifWriter.write(record, 0);
+                assertTrue(kif.contains("*編集したコメント\n*二行目\n"));
+            });
+
+            onView(withId(R.id.edit_comment_button)).perform(click());
+            onView(withId(R.id.comment_edit_text)).perform(replaceText(""), closeSoftKeyboard());
+            onView(withText(R.string.save_comment)).perform(click());
+            onView(withId(R.id.comment_view)).check(matches(withText(R.string.comment_empty)));
+        }
+    }
 
     @Test
     public void commentsFollowMovesAndTabsWithoutLeakingIntoAnotherGame() {

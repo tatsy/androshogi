@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * A position tree with a selected continuation and a cursor on that route.
@@ -34,6 +35,7 @@ public final class GameRecord {
         @Override public int size() { return length(); }
     });
     private long nextNodeId = 1;
+    private String eventName;
     private String blackName;
     private String whiteName;
     private int currentPly;
@@ -44,7 +46,13 @@ public final class GameRecord {
     }
 
     public GameRecord(String startSfen, String blackName, String whiteName, String startComment) {
+        this(startSfen, blackName, whiteName, startComment, "");
+    }
+
+    public GameRecord(String startSfen, String blackName, String whiteName, String startComment,
+                      String eventName) {
         this.startSfen = startSfen;
+        this.eventName = eventName == null ? "" : eventName;
         this.blackName = blackName;
         this.whiteName = whiteName;
         nodes.put(ROOT_ID, new GameNode(ROOT_ID, null, Shogi.MOVE_NONE, 0, startComment));
@@ -60,7 +68,14 @@ public final class GameRecord {
     /** Keeps comments before the first move on the root position as ordinary text. */
     public GameRecord(String startSfen, List<Integer> moves, List<Integer> times,
                       List<String> comments, String blackName, String whiteName, String startComment) {
-        this(startSfen, blackName, whiteName, startComment);
+        this(startSfen, moves, times, comments, blackName, whiteName, startComment, "");
+    }
+
+    /** Loaded linear record including optional KIF game-event information. */
+    public GameRecord(String startSfen, List<Integer> moves, List<Integer> times,
+                      List<String> comments, String blackName, String whiteName, String startComment,
+                      String eventName) {
+        this(startSfen, blackName, whiteName, startComment, eventName);
         long parent = ROOT_ID;
         for (int i = 0; i < moves.size(); i++) {
             parent = appendChild(parent, moves.get(i),
@@ -73,7 +88,7 @@ public final class GameRecord {
 
     /** Detached tree and selection used by the background serializer. IDs are preserved. */
     public GameRecord(GameRecord other) {
-        this(other.startSfen, other.blackName, other.whiteName);
+        this(other.startSfen, other.blackName, other.whiteName, null, other.eventName);
         nodes.clear();
         for (GameNode source : other.nodes.values()) {
             GameNode copy = new GameNode(source.id(), source.parentId(), source.move(),
@@ -91,9 +106,14 @@ public final class GameRecord {
 
     public String startSfen() { return startSfen; }
     public String startComment() { return nodes.get(ROOT_ID).comment(); }
+    public String eventName() { return eventName; }
     public String blackName() { return blackName; }
     public String whiteName() { return whiteName; }
     public void setPlayerNames(String black, String white) {
+        setGameInformation(eventName, black, white);
+    }
+    public void setGameInformation(String event, String black, String white) {
+        eventName = event == null ? "" : event;
         blackName = black;
         whiteName = white;
         editVersion++;
@@ -124,6 +144,26 @@ public final class GameRecord {
     public long currentNodeId() { return nodeIdAtPly(currentPly); }
     public long nextNodeId() { return nextNodeId; }
     public Long selectedChildId(long parentId) { return selectedChildren.get(parentId); }
+
+    /** Updates a position comment; a blank value removes it. */
+    public boolean setComment(long nodeId, String comment) {
+        GameNode node = requireNode(nodeId);
+        String normalized = isBlank(comment) ? null : comment;
+        if (Objects.equals(node.comment(), normalized)) return false;
+        node.setComment(normalized);
+        editVersion++;
+        return true;
+    }
+
+    private static boolean isBlank(String text) {
+        if (text == null || text.isEmpty()) return true;
+        for (int offset = 0; offset < text.length();) {
+            int ch = text.codePointAt(offset);
+            if (!Character.isWhitespace(ch) && !Character.isSpaceChar(ch)) return false;
+            offset += Character.charCount(ch);
+        }
+        return true;
+    }
 
     public boolean forward() {
         if (!prepareForward()) return false;
@@ -328,7 +368,12 @@ public final class GameRecord {
     /** Restores a complete tree, rejecting disconnected nodes, cycles and invalid selections. */
     public static GameRecord fromTree(String startSfen, String black, String white,
                                       List<NodeData> data, long currentNodeId, long nextNodeId) {
-        GameRecord record = new GameRecord(startSfen, black, white);
+        return fromTree(startSfen, black, white, "", data, currentNodeId, nextNodeId);
+    }
+
+    public static GameRecord fromTree(String startSfen, String black, String white, String eventName,
+                                      List<NodeData> data, long currentNodeId, long nextNodeId) {
+        GameRecord record = new GameRecord(startSfen, black, white, null, eventName);
         record.nodes.clear();
         long maxId = ROOT_ID;
         for (NodeData entry : data) {

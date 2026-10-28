@@ -36,6 +36,31 @@ public class GameRecordTest {
         assertNull(new GameRecord(Shogi.STARTING_SFEN, "B", "W").startComment());
     }
 
+    @Test public void gameInformationSurvivesCopies() {
+        GameRecord record = new GameRecord(Shogi.STARTING_SFEN, "B", "W");
+        record.setGameInformation("竜王戦", "藤井", "佐々木");
+        GameRecord copy = new GameRecord(record);
+        assertEquals("竜王戦", copy.eventName());
+        assertEquals("藤井", copy.blackName());
+        assertEquals("佐々木", copy.whiteName());
+    }
+
+    @Test public void commentsCanBeEditedAndRemovedOnAnyPosition() {
+        GameRecord record = fourMoves();
+        long version = record.editVersion();
+        assertTrue(record.setComment(GameRecord.ROOT_ID, "開始\nコメント"));
+        assertEquals("開始\nコメント", record.startComment());
+        assertEquals(version + 1, record.editVersion());
+        assertFalse(record.setComment(GameRecord.ROOT_ID, "開始\nコメント"));
+
+        long second = record.nodeIdAtPly(2);
+        assertTrue(record.setComment(second, "編集後"));
+        assertEquals("編集後", record.comment(1));
+        assertTrue(record.setComment(second, " \n　"));
+        assertNull(record.comment(1));
+        assertNull(new GameRecord(record).comment(1));
+    }
+
     @Test
     public void emptyRecordIsAtStartAndEnd() {
         GameRecord r = new GameRecord(Shogi.STARTING_SFEN, "B", "W");

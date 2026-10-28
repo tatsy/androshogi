@@ -68,6 +68,16 @@ public class GameSessionTest {
         assertTrue(game.isScratchGame());
     }
 
+    @Test public void eventNameKeepsAnEmptyGameFromBeingOverwritten() {
+        GameSession game = session();
+        game.record().setGameInformation("王将戦", "Black", "White");
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(300);
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertEquals("王将戦", saved.record.eventName());
+    }
+
     @Test public void analyzedOrModifiedGameGetsANewId() {
         GameSession game = session();
         game.analysis().put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,

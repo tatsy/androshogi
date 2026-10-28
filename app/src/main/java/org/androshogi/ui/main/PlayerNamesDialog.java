@@ -9,22 +9,26 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.androshogi.R;
 
-/** Edits the names in side order regardless of the board's orientation. */
+/** Edits KIF game information in side order regardless of the board's orientation. */
 final class PlayerNamesDialog {
     interface Callback {
-        void onSave(String black, String white);
+        void onSave(String event, String black, String white);
     }
 
-    static void show(Context context, String blackName, String whiteName, Callback callback) {
+    static void show(Context context, String eventName, String blackName, String whiteName,
+                     Callback callback) {
         View view = LayoutInflater.from(context).inflate(R.layout.dialog_player_names, null);
+        EditText event = view.findViewById(R.id.event_name);
         EditText black = view.findViewById(R.id.black_player_name);
         EditText white = view.findViewById(R.id.white_player_name);
+        event.setText(eventName);
         black.setText(blackName);
         white.setText(whiteName);
         new MaterialAlertDialogBuilder(context, R.style.ThemeOverlay_Androshogi_AlertDialog)
                 .setTitle(R.string.edit_player_names)
                 .setView(view)
                 .setPositiveButton(R.string.save_player_names, (dialog, which) -> callback.onSave(
+                        normalize(event.getText(), ""),
                         normalize(black.getText(), context.getString(R.string.default_black_name)),
                         normalize(white.getText(), context.getString(R.string.default_white_name))))
                 .setNegativeButton(android.R.string.cancel, null)

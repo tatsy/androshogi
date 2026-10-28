@@ -41,6 +41,7 @@ public final class GameSession {
         return !record.hasMoves() && analysis.count() == 0
                 && Objects.equals(defaultBlackName, record.blackName())
                 && Objects.equals(defaultWhiteName, record.whiteName())
+                && (record.eventName() == null || record.eventName().isEmpty())
                 && (record.startComment() == null || record.startComment().isEmpty())
                 && Shogi.STARTING_SFEN.equals(record.startSfen());
     }

@@ -4,14 +4,21 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/** A document-picker suggestion based on the game's creation time and player names. */
+/** A document-picker suggestion based on the event, creation time and player names. */
 final class KifFileName {
     // Even four-byte UTF-8 characters leave the whole filename below 255 bytes.
-    private static final int MAX_NAME_CODE_POINTS = 24;
+    private static final int MAX_NAME_CODE_POINTS = 16;
 
     private KifFileName() {}
 
     static String baseName(long createdAt, String blackName, String whiteName) {
+        return baseName(createdAt, "", blackName, whiteName);
+    }
+
+    static String baseName(long createdAt, String eventName, String blackName, String whiteName) {
+        String players = safeName(blackName, "先手") + "_" + safeName(whiteName, "後手");
+        String event = safeName(eventName, "");
+        if (!event.isEmpty()) return event + "_" + players;
         String stamp = new SimpleDateFormat("yyMMdd_HHmmss", Locale.US).format(new Date(createdAt));
         return stamp + "_" + safeName(blackName, "先手") + "_vs_" + safeName(whiteName, "後手");
     }

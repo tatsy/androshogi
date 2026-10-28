@@ -90,6 +90,11 @@ public class KifParser {
         return names[Shogi.WHITE];
     }
 
+    /** Value of the standard KIF 棋戦 header, or an empty string when absent. */
+    public String eventName() {
+        return varInfo == null ? "" : varInfo.getOrDefault("棋戦", "");
+    }
+
     public String getSFEN() { return sfen; }
     /** Comments before the first move, belonging to the starting position. */
     public String getStartComment() { return comment; }

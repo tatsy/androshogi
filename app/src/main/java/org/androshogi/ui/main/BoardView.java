@@ -70,6 +70,7 @@ public class BoardView extends View implements EngineUpdateListener {
 
     // Position change notification and input locking (used by the analysis loop)
     private OnPositionChangedListener positionListener;
+    private Runnable movePlayedListener;
     private boolean inputLocked = false;
 
     // Layout parameters
@@ -506,6 +507,7 @@ public class BoardView extends View implements EngineUpdateListener {
         boolean routeChanged = record.isAtEnd() || record.nextMove() != move;
         record.playVariation(move);
         board.push(move);
+        notifyMovePlayed();
         afterPositionChanged();
         if (routeChanged) notifyRecordChanged();
         notifyPositionChanged();
@@ -519,6 +521,7 @@ public class BoardView extends View implements EngineUpdateListener {
         if (move != Shogi.MOVE_NONE) {
             record.forward();
             board.push(move);
+            notifyMovePlayed();
             afterPositionChanged();
             notifyPositionChanged();
             return true;
@@ -672,6 +675,15 @@ public class BoardView extends View implements EngineUpdateListener {
 
     public void setOnPositionChangedListener(OnPositionChangedListener listener) {
         this.positionListener = listener;
+    }
+
+    /** Receives only single forward moves, not loading, seeking, or taking a move back. */
+    public void setOnMovePlayedListener(Runnable listener) {
+        this.movePlayedListener = listener;
+    }
+
+    private void notifyMovePlayed() {
+        if (movePlayedListener != null) movePlayedListener.run();
     }
 
     private void notifyPositionChanged() {

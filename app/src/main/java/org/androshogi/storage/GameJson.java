@@ -32,6 +32,7 @@ public final class GameJson {
         root.put("createdAt", game.createdAt);
         root.put("updatedAt", game.updatedAt);
         GameRecord record = game.record;
+        root.put("event", record.eventName());
         root.put("black", record.blackName());
         root.put("white", record.whiteName());
         root.put("startSfen", record.startSfen());
@@ -133,7 +134,8 @@ public final class GameJson {
         }
         try {
             return GameRecord.fromTree(root.getString("startSfen"), root.optString("black", ""),
-                    root.optString("white", ""), nodes, root.getLong("currentNodeId"), root.getLong("nextNodeId"));
+                    root.optString("white", ""), root.optString("event", ""), nodes,
+                    root.getLong("currentNodeId"), root.getLong("nextNodeId"));
         } catch (IllegalArgumentException e) {
             throw new JSONException("invalid saved game tree: " + e.getMessage());
         }
@@ -157,7 +159,8 @@ public final class GameJson {
                     ? commentArray.getString(i) : null);
         }
         GameRecord record = new GameRecord(root.getString("startSfen"), moves, times, comments,
-                root.optString("black", ""), root.optString("white", ""));
+                root.optString("black", ""), root.optString("white", ""), null,
+                root.optString("event", ""));
         record.seek(root.optInt("currentPly", record.length()));
         return record;
     }

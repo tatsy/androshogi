@@ -177,6 +177,7 @@ public class MainActivityLeafDeletionTest {
             menu(R.id.delete_last_move);
             assertNoDeletionPopup();
             onView(withId(R.id.black_info_view)).perform(click());
+            onView(withId(R.id.event_name)).perform(replaceText("棋戦テスト"));
             onView(withId(R.id.black_player_name)).perform(replaceText("編集済み"));
             onView(withText(R.string.save_player_names)).perform(click());
             assertUndoEnabled(false);

@@ -57,3 +57,14 @@ AndroShogi は GNU General Public License v3.0（`LICENSE`）で公開してい�
 - 配置: `app/src/python/YujiMai-Regular.ttf`
 - 出典: https://fonts.google.com/specimen/Yuji+Mai
 - 駒画像（`res/drawable*/koma_*.png`）を `app/src/python/koma.py` で生成する際に使用しています。
+
+## 効果音
+
+### 「将棋の駒を置く」（音素材 No.4389）— CC BY 3.0 Unported
+
+- クレジット: ノタの森
+- 配置: `app/src/main/res/raw/koma_sound.wav`
+- 出典: http://notanomori.net/sound/4389/
+- 利用規約: http://notanomori.net/termsofuse/
+- ライセンス: Creative Commons Attribution 3.0 Unported
+  https://creativecommons.org/licenses/by/3.0/deed.ja

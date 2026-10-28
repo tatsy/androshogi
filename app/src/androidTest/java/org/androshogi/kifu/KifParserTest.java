@@ -38,6 +38,7 @@ public class KifParserTest {
         String kif = String.join("\n",
                 "# ---- Kifu for Windows ----",
                 "開始日時：2024/12/01 10:00:00",
+                "棋戦：順位戦",
                 "手合割：平手",
                 "先手：先手太郎",
                 "後手：後手花子",
@@ -54,6 +55,7 @@ public class KifParserTest {
 
         assertEquals("先手太郎", parser.blackName());
         assertEquals("後手花子", parser.whiteName());
+        assertEquals("順位戦", parser.eventName());
         assertEquals(Shogi.STARTING_SFEN, parser.getSFEN());
         assertEquals(Shogi.GameResult.BLACK_WIN, parser.getGameResult());
 
@@ -99,6 +101,7 @@ public class KifParserTest {
 
         assertEquals("先手", parser.blackName());
         assertEquals("後手", parser.whiteName());
+        assertEquals("", parser.eventName());
         assertEquals(1, parser.getMoves().size());
     }
 
@@ -475,6 +478,7 @@ public class KifParserTest {
 
         assertEquals("zkyuu 3級", parser.blackName());
         assertEquals("runner3494 2級", parser.whiteName());
+        assertEquals("将棋ウォーズ(10分切れ負け)", parser.eventName());
         assertEquals(122, parser.getMoves().size());
         assertEquals(Shogi.GameResult.WHITE_WIN, parser.getGameResult());
     }
