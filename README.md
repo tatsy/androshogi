@@ -122,5 +122,6 @@ GNU General Public License v3.0 (GPLv3) 2026 (c) Tatsuya Yatagawa
 第三者ソフトウェアの表記は [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md) を参照してください。
 
 - [開発・ビルド・テスト・リリース手順](docs/CONTRIBUTION.md)
+- [変更履歴](CHANGELOG.md)
 - [ロードマップとリリース準備](docs/ROADMAP.md)
 - [既知の不具合](docs/KNOWN_ISSUES.md)
