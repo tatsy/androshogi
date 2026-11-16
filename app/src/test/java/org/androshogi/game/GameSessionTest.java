@@ -3,6 +3,7 @@ package org.androshogi.game;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -52,6 +53,17 @@ public class GameSessionTest {
         assertFalse(game.isScratchGame());
         game.startNew(empty(), false);
         assertEquals("id-3", game.id());
+    }
+
+    @Test public void undoingAMoveDeletionKeepsTheLatestCollectionChoice() {
+        GameSession game = session();
+        game.record().play(42);
+        GameSession.LeafDeletion deletion = game.deleteCurrentLeaf();
+        game.setSaved(true);
+        assertTrue(game.undoLeafDeletion(deletion));
+        assertNotNull(game.deleteCurrentLeaf());
+        assertFalse(game.isScratchGame());
+        assertTrue(game.snapshot(200).saved);
     }
 
     @Test public void startCommentKeepsAnOtherwiseEmptyGameFromBeingDiscarded() {

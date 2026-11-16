@@ -102,7 +102,9 @@ public final class GameSession {
         if (!canUndoLeafDeletion(deletion)) return false;
         // A completed search may have posted a result after the deletion snapshot.
         GameAnalysis retained = new GameAnalysis(analysis, deletion.before.record);
+        boolean currentSaved = saved;
         load(deletion.before);
+        saved = currentSaved;
         analysis.putAll(retained);
         return true;
     }
