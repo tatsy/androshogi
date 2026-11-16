@@ -37,6 +37,23 @@ public class GameSessionTest {
         assertEquals("id-2", game.id());
     }
 
+    @Test public void savedEmptyBoardsKeepTheirIdentityAcrossNewGamesAndRestore() {
+        GameSession game = session();
+        // This is the metadata returned when the list moves the current game to saved.
+        game.setSaved(true);
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(200);
+        assertTrue(saved.saved);
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertTrue(game.isScratchGame());
+        game.load(saved);
+        assertEquals("id-1", game.id());
+        assertFalse(game.isScratchGame());
+        game.startNew(empty(), false);
+        assertEquals("id-3", game.id());
+    }
+
     @Test public void startCommentKeepsAnOtherwiseEmptyGameFromBeingDiscarded() {
         String comment = "開始局面のコメント";
         GameSession game = new GameSession(new GameRecord(Shogi.STARTING_SFEN, "B", "W", comment),

@@ -3,9 +3,6 @@ package org.androshogi.storage;
 import org.androshogi.game.GameAnalysis;
 import org.androshogi.game.GameRecord;
 
-import org.androshogi.game.GameAnalysis;
-import org.androshogi.game.GameRecord;
-
 /**
  * A game as kept on disk: the record, its analysis, and when it was made and
  * last written. The id names the file and is what the settings remember as
@@ -17,12 +14,19 @@ public final class SavedGame {
     public final long updatedAt;
     public final GameRecord record;
     public final GameAnalysis analysis;
+    public final boolean saved;
 
     public SavedGame(String id, long createdAt, long updatedAt, GameRecord record, GameAnalysis analysis) {
+        this(id, createdAt, updatedAt, record, analysis, false);
+    }
+
+    public SavedGame(String id, long createdAt, long updatedAt, GameRecord record,
+                     GameAnalysis analysis, boolean saved) {
         this.id = id;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.record = record;
         this.analysis = analysis;
+        this.saved = saved;
     }
 }

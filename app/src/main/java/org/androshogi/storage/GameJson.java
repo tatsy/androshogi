@@ -26,7 +26,7 @@ public final class GameJson {
     private GameJson() {}
 
     public static String write(SavedGame game) throws JSONException {
-        return write(game, false);
+        return write(game, game.saved);
     }
 
     public static String write(SavedGame game, boolean saved) throws JSONException {
@@ -130,7 +130,7 @@ public final class GameJson {
             }
         }
         return new SavedGame(root.getString("id"), root.optLong("createdAt", 0),
-                root.optLong("updatedAt", 0), record, analysis);
+                root.optLong("updatedAt", 0), record, analysis, root.optBoolean("saved", true));
     }
 
     private static int checkFormat(JSONObject root) throws JSONException {

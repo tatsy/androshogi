@@ -19,6 +19,7 @@ public final class GameSession {
     private GameRecord record;
     private String id;
     private long createdAt;
+    private boolean saved;
 
     /** The initial record supplies the default names for identifying untouched scratch games. */
     public GameSession(GameRecord initialRecord, Supplier<String> newId, LongSupplier clock) {
@@ -36,9 +37,10 @@ public final class GameSession {
     public GameAnalysis analysis() { return analysis; }
     public String id() { return id; }
     public long createdAt() { return createdAt; }
+    public void setSaved(boolean saved) { this.saved = saved; }
 
     public boolean isScratchGame() {
-        return !record.hasMoves() && analysis.count() == 0
+        return !saved && !record.hasMoves() && analysis.count() == 0
                 && Objects.equals(defaultBlackName, record.blackName())
                 && Objects.equals(defaultWhiteName, record.whiteName())
                 && (record.eventName() == null || record.eventName().isEmpty())
@@ -53,12 +55,14 @@ public final class GameSession {
         }
         createdAt = clock.getAsLong();
         record = next;
+        saved = false;
         analysis.resetForRecord(record);
     }
 
     public void load(SavedGame saved) {
         id = saved.id;
         createdAt = saved.createdAt;
+        this.saved = saved.saved;
         record = saved.record;
         analysis.resetForRecord(record);
         analysis.putAll(saved.analysis);
@@ -118,6 +122,6 @@ public final class GameSession {
     /** Makes detached data for the I/O executor; the live game remains on the UI thread. */
     public SavedGame snapshot(long updatedAt) {
         GameRecord copy = new GameRecord(record);
-        return new SavedGame(id, createdAt, updatedAt, copy, new GameAnalysis(analysis, copy));
+        return new SavedGame(id, createdAt, updatedAt, copy, new GameAnalysis(analysis, copy), saved);
     }
 }

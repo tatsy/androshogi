@@ -53,6 +53,8 @@ public class GameListActivity extends AppCompatActivity {
     public static final String EXTRA_OPEN_ID = "open_id";
     /** Out: true when the game named by {@link #EXTRA_CURRENT_ID} was deleted. */
     public static final String EXTRA_CURRENT_DELETED = "current_deleted";
+    /** Out: latest collection of the currently displayed game, including a saved empty board. */
+    public static final String EXTRA_CURRENT_SAVED = "current_saved";
 
     private static final String STATE_SELECTION = "selection";
     private static final String STATE_SELECTING = "selecting";
@@ -275,6 +277,14 @@ public class GameListActivity extends AppCompatActivity {
             result.putExtra(EXTRA_OPEN_ID, openId);
         }
         result.putExtra(EXTRA_CURRENT_DELETED, currentDeleted);
+        if (state != null) {
+            for (GameSummary game : state.games) {
+                if (game.id.equals(currentId)) {
+                    result.putExtra(EXTRA_CURRENT_SAVED, game.saved);
+                    break;
+                }
+            }
+        }
         return result;
     }
 

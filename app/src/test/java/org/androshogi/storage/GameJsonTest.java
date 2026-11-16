@@ -114,6 +114,7 @@ public class GameJsonTest {
         org.json.JSONObject old = new org.json.JSONObject(GameJson.write(sampleGame()));
         old.remove("saved");
         assertTrue(GameJson.readSummary(old.toString()).saved);
+        assertTrue(GameJson.read(old.toString()).saved);
         assertTrue(GameJson.isSaved(old.toString()));
         // The optional metadata has the same default for every supported format.
         for (int format = 1; format <= GameJson.FORMAT; format++) {
@@ -127,9 +128,11 @@ public class GameJsonTest {
         before.put("futureMetadata", new org.json.JSONObject().put("keep", "value"));
         String saved = GameJson.withSaved(before.toString(), true);
         assertTrue(GameJson.readSummary(saved).saved);
+        assertTrue(GameJson.read(saved).saved);
         assertEquals(3, new org.json.JSONObject(saved).getInt("format"));
         String history = GameJson.withSaved(saved, false);
         assertFalse(GameJson.readSummary(history).saved);
+        assertFalse(GameJson.read(history).saved);
         org.json.JSONObject after = new org.json.JSONObject(history);
         before.remove("saved");
         after.remove("saved");

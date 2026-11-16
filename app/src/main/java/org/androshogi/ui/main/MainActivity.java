@@ -149,6 +149,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 boolean currentDeleted =
                         data.getBooleanExtra(GameListActivity.EXTRA_CURRENT_DELETED, false);
+                if (data.hasExtra(GameListActivity.EXTRA_CURRENT_SAVED)) {
+                    game.setSaved(data.getBooleanExtra(GameListActivity.EXTRA_CURRENT_SAVED, false));
+                }
                 String openId = data.getStringExtra(GameListActivity.EXTRA_OPEN_ID);
                 if (openId != null && !openId.equals(game.id())) {
                     // If another game was chosen, open it directly even when the current one was deleted.

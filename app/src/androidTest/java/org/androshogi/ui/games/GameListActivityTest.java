@@ -215,6 +215,8 @@ public class GameListActivityTest {
             awaitReady(scenario);
             assertFalse(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
             assertFalse(store.list().stream().filter(g -> g.id.equals(second)).findFirst().get().saved);
+            scenario.onActivity(activity -> assertFalse(activity.resultIntent(null)
+                    .getBooleanExtra(GameListActivity.EXTRA_CURRENT_SAVED, true)));
             onView(withId(R.id.game_tab_history)).perform(click());
             scenario.recreate();
             awaitReady(scenario);
@@ -229,6 +231,7 @@ public class GameListActivityTest {
                 assertFalse(activity.resultIntent(null).getBooleanExtra(
                         GameListActivity.EXTRA_CURRENT_DELETED, false));
                 assertEquals(first, activity.resultIntent(first).getStringExtra(GameListActivity.EXTRA_OPEN_ID));
+                assertTrue(activity.resultIntent(null).getBooleanExtra(GameListActivity.EXTRA_CURRENT_SAVED, false));
             });
             assertNotNull(store.load(first));
             assertNotNull(store.load(second));
