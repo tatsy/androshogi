@@ -107,6 +107,36 @@ public class GameJsonTest {
         assertEquals(2, s.analyzedCount);
         assertEquals(1700000000000L, s.createdAt);
         assertEquals(1700000001000L, s.updatedAt);
+        assertFalse(s.saved);
+    }
+
+    @Test public void collectionMetadataDefaultsToSavedForOlderFiles() throws JSONException {
+        org.json.JSONObject old = new org.json.JSONObject(GameJson.write(sampleGame()));
+        old.remove("saved");
+        assertTrue(GameJson.readSummary(old.toString()).saved);
+        assertTrue(GameJson.isSaved(old.toString()));
+        // The optional metadata has the same default for every supported format.
+        for (int format = 1; format <= GameJson.FORMAT; format++) {
+            old.put("format", format);
+            assertTrue(GameJson.isSaved(old.toString()));
+        }
+    }
+
+    @Test public void collectionMovesPreserveTheCompleteDocumentAndFormat() throws JSONException {
+        org.json.JSONObject before = new org.json.JSONObject(GameJson.write(sampleGame()));
+        before.put("futureMetadata", new org.json.JSONObject().put("keep", "value"));
+        String saved = GameJson.withSaved(before.toString(), true);
+        assertTrue(GameJson.readSummary(saved).saved);
+        assertEquals(3, new org.json.JSONObject(saved).getInt("format"));
+        String history = GameJson.withSaved(saved, false);
+        assertFalse(GameJson.readSummary(history).saved);
+        org.json.JSONObject after = new org.json.JSONObject(history);
+        before.remove("saved");
+        after.remove("saved");
+        assertEquals(before.toString(), after.toString());
+        SavedGame loaded = GameJson.read(history);
+        assertEquals(sampleGame().record.currentPly(), loaded.record.currentPly());
+        assertEquals(2, loaded.analysis.count());
     }
 
     @Test

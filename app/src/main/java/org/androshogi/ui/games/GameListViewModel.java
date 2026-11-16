@@ -20,21 +20,25 @@ import java.util.concurrent.Executors;
 
 /** Keeps file operations and their results alive across activity recreation. */
 public final class GameListViewModel extends AndroidViewModel {
+    enum Operation { DELETE, SAVE, HISTORY }
+
     static final class State {
         final List<GameSummary> games;
         final boolean busy;
         final Set<String> deletedIds;
-        final int deletionVersion;
-        final int deletedCount;
+        final int operationVersion;
+        final Operation operation;
+        final int changedCount;
         final int failedCount;
 
         State(List<GameSummary> games, boolean busy, Set<String> deletedIds,
-              int deletionVersion, int deletedCount, int failedCount) {
+              int operationVersion, Operation operation, int changedCount, int failedCount) {
             this.games = Collections.unmodifiableList(new ArrayList<>(games));
             this.busy = busy;
             this.deletedIds = Collections.unmodifiableSet(new HashSet<>(deletedIds));
-            this.deletionVersion = deletionVersion;
-            this.deletedCount = deletedCount;
+            this.operationVersion = operationVersion;
+            this.operation = operation;
+            this.changedCount = changedCount;
             this.failedCount = failedCount;
         }
     }
@@ -42,13 +46,13 @@ public final class GameListViewModel extends AndroidViewModel {
     private final GameStore store;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final MutableLiveData<State> state = new MutableLiveData<>(
-            new State(Collections.emptyList(), true, Collections.emptySet(), 0, 0, 0));
+            new State(Collections.emptyList(), true, Collections.emptySet(), 0, null, 0, 0));
 
     public GameListViewModel(@NonNull Application application) {
         super(application);
         store = new GameStore(application);
         io.execute(() -> state.postValue(new State(store.list(), false,
-                Collections.emptySet(), 0, 0, 0)));
+                Collections.emptySet(), 0, null, 0, 0)));
     }
 
     LiveData<State> state() {
@@ -57,31 +61,43 @@ public final class GameListViewModel extends AndroidViewModel {
 
     /** Called on the UI thread. A batch cannot overlap another file operation. */
     void delete(List<String> ids) {
+        runBatch(ids, Operation.DELETE);
+    }
+
+    void move(List<String> ids, boolean saved) {
+        runBatch(ids, saved ? Operation.SAVE : Operation.HISTORY);
+    }
+
+    private void runBatch(List<String> ids, Operation operation) {
         State before = state.getValue();
         if (before == null || before.busy || ids.isEmpty()) {
             return;
         }
         List<String> requested = new ArrayList<>(new HashSet<>(ids));
         state.setValue(new State(before.games, true, before.deletedIds,
-                before.deletionVersion, 0, 0));
+                before.operationVersion, operation, 0, 0));
         io.execute(() -> {
             Set<String> deletedIds = new HashSet<>(before.deletedIds);
             Set<String> succeeded = new HashSet<>();
             for (String id : requested) {
-                if (store.delete(id)) {
+                boolean success = operation == Operation.DELETE ? store.delete(id)
+                        : store.setSaved(id, operation == Operation.SAVE);
+                if (success) {
                     succeeded.add(id);
-                    deletedIds.add(id);
+                    if (operation == Operation.DELETE) deletedIds.add(id);
                 }
             }
-            // Keep failed records visible and selected; no extra disk read is needed.
+            // Failed records retain their category and selection; successful moves keep their IDs.
             List<GameSummary> remaining = new ArrayList<>();
             for (GameSummary game : before.games) {
                 if (!succeeded.contains(game.id)) {
                     remaining.add(game);
+                } else if (operation != Operation.DELETE) {
+                    remaining.add(game.withSaved(operation == Operation.SAVE));
                 }
             }
             state.postValue(new State(remaining, false, deletedIds,
-                    before.deletionVersion + 1, succeeded.size(), requested.size() - succeeded.size()));
+                    before.operationVersion + 1, operation, succeeded.size(), requested.size() - succeeded.size()));
         });
     }
 

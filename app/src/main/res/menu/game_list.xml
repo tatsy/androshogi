@@ -5,6 +5,10 @@
         android:title="@string/game_list_select" app:showAsAction="always" />
     <item android:id="@+id/game_select_all"
         android:title="@string/game_list_select_all" app:showAsAction="ifRoom" />
+    <item android:id="@+id/game_move_selected"
+        android:icon="@drawable/ic_swap_horiz"
+        app:iconTint="?attr/colorOnSurface"
+        android:title="@string/game_list_move_to_history" app:showAsAction="always" />
     <item android:id="@+id/game_delete_selected"
         android:icon="@drawable/ic_delete"
         app:iconTint="?attr/colorOnSurface"

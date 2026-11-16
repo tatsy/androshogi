@@ -6,10 +6,13 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
 import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.*;
+import static org.hamcrest.Matchers.allOf;
 
 import android.content.Context;
 import android.content.Intent;
@@ -65,6 +68,7 @@ public class GameListActivityTest {
         GameRecord record = new GameRecord(Shogi.STARTING_SFEN, black, "後手");
         assertTrue(store.save(new SavedGame(id, System.currentTimeMillis(),
                 System.currentTimeMillis() + 10000, record, new GameAnalysis(record))));
+        assertTrue(store.setSaved(id, true));
     }
 
     @After public void tearDown() {
@@ -197,6 +201,92 @@ public class GameListActivityTest {
             assertTrue(failed.isDirectory());
             onView(withText("1件選択中")).check(matches(withText("1件選択中")));
             onView(withContentDescription("一括削除B 対 後手 の棋譜を選択")).check(matches(isChecked()));
+            scenario.recreate();
+            awaitReady(scenario);
+            onView(withContentDescription("一括削除B 対 後手 の棋譜を選択")).check(matches(isChecked()));
+        }
+    }
+
+    @Test public void movesSelectedGamesBothWaysAndRestoresTheHistoryTab() {
+        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
+            awaitReady(scenario);
+            selectBoth(scenario);
+            onView(withId(R.id.game_move_selected)).check(matches(isDisplayed())).perform(click());
+            awaitReady(scenario);
+            assertFalse(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
+            assertFalse(store.list().stream().filter(g -> g.id.equals(second)).findFirst().get().saved);
+            onView(withId(R.id.game_tab_history)).perform(click());
+            scenario.recreate();
+            awaitReady(scenario);
+            onView(withId(R.id.game_tab_history)).check(matches(isChecked()));
+            selectBoth(scenario);
+            onView(withId(R.id.game_move_selected)).perform(click());
+            awaitReady(scenario);
+            onView(withId(R.id.game_tab_saved)).perform(click());
+            assertTrue(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
+            assertTrue(store.list().stream().filter(g -> g.id.equals(second)).findFirst().get().saved);
+            scenario.onActivity(activity -> {
+                assertFalse(activity.resultIntent(null).getBooleanExtra(
+                        GameListActivity.EXTRA_CURRENT_DELETED, false));
+                assertEquals(first, activity.resultIntent(first).getStringExtra(GameListActivity.EXTRA_OPEN_ID));
+            });
+            assertNotNull(store.load(first));
+            assertNotNull(store.load(second));
+        }
+    }
+
+    @Test public void selectAllMovesTheSavedCollectionAndRowButtonMovesOneBack() {
+        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
+            awaitReady(scenario);
+            menu(scenario, R.id.game_select);
+            menu(scenario, R.id.game_select_all);
+            onView(withContentDescription("一括削除A 対 後手 の棋譜を選択")).check(matches(isChecked()));
+            onView(withContentDescription("一括削除B 対 後手 の棋譜を選択")).check(matches(isChecked()));
+            onView(withId(R.id.game_move_selected)).perform(click());
+            awaitReady(scenario);
+            onView(withId(R.id.game_tab_history)).perform(click());
+            onView(allOf(withId(R.id.game_move), hasSibling(hasDescendant(
+                    withText("一括削除B 対 後手"))))).perform(click());
+            awaitReady(scenario);
+            assertFalse(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
+            assertTrue(store.list().stream().filter(g -> g.id.equals(second)).findFirst().get().saved);
+        }
+    }
+
+    @Test public void selectAllAndTabSwitchOnlyAffectTheVisibleCollection() {
+        assertTrue(store.setSaved(second, false));
+        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
+            awaitReady(scenario);
+            menu(scenario, R.id.game_select);
+            menu(scenario, R.id.game_select_all);
+            onView(withContentDescription("一括削除A 対 後手 の棋譜を選択")).check(matches(isChecked()));
+            onView(withId(R.id.game_tab_history)).perform(click());
+            // The old selection is cleared; the saved collection must not be moved by this action.
+            menu(scenario, R.id.game_select);
+            onView(withText("0件選択中")).check(matches(withText("0件選択中")));
+            onView(withContentDescription("一括削除B 対 後手 の棋譜を選択")).perform(click());
+            onView(withId(R.id.game_move_selected)).perform(click());
+            awaitReady(scenario);
+            assertTrue(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
+            assertTrue(store.list().stream().filter(g -> g.id.equals(second)).findFirst().get().saved);
+        }
+    }
+
+    @Test public void failedMoveRemainsInTheOriginalTabAndSelected() throws Exception {
+        try (ActivityScenario<GameListActivity> scenario = ActivityScenario.launch(intent())) {
+            awaitReady(scenario);
+            selectBoth(scenario);
+            File failed = new File(context.getFilesDir(), "games/" + second + ".json");
+            assertTrue(failed.delete());
+            assertTrue(failed.mkdir());
+            try (FileOutputStream out = new FileOutputStream(new File(failed, "keep"))) {
+                out.write(1);
+            }
+            onView(withId(R.id.game_move_selected)).perform(click());
+            awaitReady(scenario);
+            assertNotNull(store.load(first));
+            assertFalse(store.list().stream().filter(g -> g.id.equals(first)).findFirst().get().saved);
+            onView(withText("1件選択中")).check(matches(withText("1件選択中")));
             scenario.recreate();
             awaitReady(scenario);
             onView(withContentDescription("一括削除B 対 後手 の棋譜を選択")).check(matches(isChecked()));

@@ -26,8 +26,13 @@ public final class GameJson {
     private GameJson() {}
 
     public static String write(SavedGame game) throws JSONException {
+        return write(game, false);
+    }
+
+    public static String write(SavedGame game, boolean saved) throws JSONException {
         JSONObject root = new JSONObject();
         root.put("format", FORMAT);
+        root.put("saved", saved);
         root.put("id", game.id);
         root.put("createdAt", game.createdAt);
         root.put("updatedAt", game.updatedAt);
@@ -78,7 +83,22 @@ public final class GameJson {
         JSONArray analysis = root.optJSONArray("analysis");
         return new GameSummary(root.getString("id"), record.blackName(), record.whiteName(),
                 record.length(), analysis == null ? 0 : analysis.length(),
-                root.optLong("createdAt", 0), root.optLong("updatedAt", 0));
+                root.optLong("createdAt", 0), root.optLong("updatedAt", 0), root.optBoolean("saved", true));
+    }
+
+    /** Missing metadata belongs to the existing saved collection, including formats 1 and 2. */
+    static boolean isSaved(String json) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        checkFormat(root);
+        return root.optBoolean("saved", true);
+    }
+
+    /** Changes only collection metadata; keep the cursor, all branches, results and dates intact. */
+    static String withSaved(String json, boolean saved) throws JSONException {
+        JSONObject root = new JSONObject(json);
+        checkFormat(root);
+        root.put("saved", saved);
+        return root.toString(2);
     }
 
     public static SavedGame read(String json) throws JSONException {

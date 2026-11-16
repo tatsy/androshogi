@@ -92,7 +92,14 @@
 
     <!-- 棋譜一覧 -->
     <string name="game_list">棋譜一覧</string>
-    <string name="game_list_empty">保存された棋譜はありません</string>
+    <string name="game_list_empty">保存済みの棋譜はありません</string>
+    <string name="game_list_saved">保存済み</string>
+    <string name="game_list_history">履歴</string>
+    <string name="game_list_history_empty">履歴はありません</string>
+    <string name="game_list_move_to_history">履歴に移す</string>
+    <string name="game_list_move_to_saved">保存済みに移す</string>
+    <string name="game_list_moved_count">%1$d件を「%2$s」に移しました</string>
+    <string name="game_list_move_partial">%1$d件を「%2$s」に移しました。%3$d件は移せませんでした。</string>
     <string name="game_list_players">%1$s 対 %2$s</string>
     <string name="game_list_current">（表示中）</string>
     <string name="game_list_details">%1$d手 ・ 解析 %2$d局面 ・ %3$s</string>

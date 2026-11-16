@@ -18,6 +18,8 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,6 +39,8 @@ import java.util.regex.Pattern;
 public final class GameStore {
     private static final String TAG = "GameStore";
     private static final String DIRECTORY = "games";
+    /** MainActivity and the list have independent I/O executors and GameStore instances. */
+    private static final Object WRITE_LOCK = new Object();
     /** Ids come from {@link #newId()}, but the one read back from the preferences is checked before it names a file. */
     private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9_-]+");
 
@@ -57,25 +61,55 @@ public final class GameStore {
 
     /** Writes the game and remembers it as the one to reopen. */
     public boolean save(SavedGame game) {
+        synchronized (WRITE_LOCK) {
+            try {
+                if (!dir.isDirectory() && !dir.mkdirs()) {
+                    throw new IOException("cannot create " + dir);
+                }
+                File target = fileFor(game.id);
+                // A detached gameplay snapshot may predate a move between collections.
+                // The on-disk flag remains authoritative; new records start in history.
+                boolean saved = target.exists() && GameJson.isSaved(readText(target));
+                writeAtomically(target, GameJson.write(game, saved));
+                AppSettings.setLastGameId(context, game.id);
+                return true;
+            } catch (IOException | JSONException e) {
+                Log.w(TAG, "Failed to save game " + game.id, e);
+                return false;
+            }
+        }
+    }
+
+    /** Moves an existing record without making it the current game or changing its update time. */
+    public boolean setSaved(String id, boolean saved) {
+        if (!SAFE_ID.matcher(id).matches()) return false;
+        synchronized (WRITE_LOCK) {
+            File target = fileFor(id);
+            if (!target.isFile()) return false;
+            try {
+                writeAtomically(target, GameJson.withSaved(readText(target), saved));
+                return true;
+            } catch (IOException | JSONException e) {
+                Log.w(TAG, "Failed to move game " + id, e);
+                return false;
+            }
+        }
+    }
+
+    private void writeAtomically(File target, String json) throws IOException {
+        File temp = File.createTempFile("game-", ".tmp", dir);
         try {
-            String json = GameJson.write(game);
-            if (!dir.isDirectory() && !dir.mkdirs()) {
-                throw new IOException("cannot create " + dir);
-            }
-            // Write beside the target and rename, so a crash mid-write leaves the old file intact.
-            File target = fileFor(game.id);
-            File temp = new File(dir, game.id + ".tmp");
-            try (Writer writer = new OutputStreamWriter(new FileOutputStream(temp), StandardCharsets.UTF_8)) {
+            try (FileOutputStream output = new FileOutputStream(temp);
+                 Writer writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
                 writer.write(json);
+                writer.flush();
+                output.getFD().sync();
             }
-            if (!temp.renameTo(target) && !(target.delete() && temp.renameTo(target))) {
-                throw new IOException("cannot replace " + target);
-            }
-            AppSettings.setLastGameId(context, game.id);
-            return true;
-        } catch (IOException | JSONException e) {
-            Log.w(TAG, "Failed to save game " + game.id, e);
-            return false;
+            // Replacing in the same directory is atomic; a failed replacement keeps the old file.
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            if (temp.exists()) temp.delete();
         }
     }
 
@@ -132,15 +166,17 @@ public final class GameStore {
             Log.w(TAG, "Refusing to delete game with id " + id);
             return false;
         }
-        File file = fileFor(id);
-        boolean deleted = !file.exists() || file.delete();
-        if (deleted && id.equals(AppSettings.lastGameId(context))) {
-            AppSettings.clearLastGameId(context);
+        synchronized (WRITE_LOCK) {
+            File file = fileFor(id);
+            boolean deleted = !file.exists() || file.delete();
+            if (deleted && id.equals(AppSettings.lastGameId(context))) {
+                AppSettings.clearLastGameId(context);
+            }
+            if (!deleted) {
+                Log.w(TAG, "Failed to delete game " + id);
+            }
+            return deleted;
         }
-        if (!deleted) {
-            Log.w(TAG, "Failed to delete game " + id);
-        }
-        return deleted;
     }
 
     private static String readText(File file) throws IOException {

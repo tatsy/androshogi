@@ -45,6 +45,15 @@
     </LinearLayout>
 
     <ImageButton
+        android:id="@+id/game_move"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/game_list_move_to_history"
+        android:src="@drawable/ic_swap_horiz"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+    <ImageButton
         android:id="@+id/game_delete"
         android:layout_width="48dp"
         android:layout_height="48dp"

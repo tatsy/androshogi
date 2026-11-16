@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ import java.util.Set;
 
 /**
  * The saved games, most recently updated first. Tapping one hands its id
- * back to {@link MainActivity}; selection mode deletes multiple games after asking.
+ * back to {@link MainActivity}; selection mode moves records or confirms their deletion.
  *
  * <p>The result carries {@link #EXTRA_OPEN_ID} when a game was chosen and
  * {@link #EXTRA_CURRENT_DELETED} when the game that was on the board is gone,
@@ -55,13 +56,17 @@ public class GameListActivity extends AppCompatActivity {
 
     private static final String STATE_SELECTION = "selection";
     private static final String STATE_SELECTING = "selecting";
-    private static final String STATE_DELETION_VERSION = "deletion_version";
+    private static final String STATE_OPERATION_VERSION = "operation_version";
+    private static final String STATE_SAVED_TAB = "saved_tab";
     private final Set<String> selectedIds = new HashSet<>();
     private GameListViewModel model;
     private GameListViewModel.State state;
     private boolean selecting;
     private boolean dialogOpen;
-    private int handledDeletionVersion;
+    private int handledOperationVersion;
+    private boolean showSaved = true;
+    private MaterialButtonToggleGroup collectionTabs;
+    private final List<GameSummary> visibleGames = new ArrayList<>();
     @Nullable
     private String currentId;
     private boolean currentDeleted;
@@ -83,7 +88,8 @@ public class GameListActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             selecting = savedInstanceState.getBoolean(STATE_SELECTING);
             currentDeleted = savedInstanceState.getBoolean(EXTRA_CURRENT_DELETED);
-            handledDeletionVersion = savedInstanceState.getInt(STATE_DELETION_VERSION);
+            handledOperationVersion = savedInstanceState.getInt(STATE_OPERATION_VERSION);
+            showSaved = savedInstanceState.getBoolean(STATE_SAVED_TAB, true);
             ArrayList<String> selection = savedInstanceState.getStringArrayList(STATE_SELECTION);
             if (selection != null) selectedIds.addAll(selection);
         }
@@ -94,6 +100,19 @@ public class GameListActivity extends AppCompatActivity {
         adapter = new GameListAdapter();
         list.setAdapter(adapter);
 
+        collectionTabs = findViewById(R.id.game_collection_tabs);
+        collectionTabs.check(showSaved ? R.id.game_tab_saved : R.id.game_tab_history);
+        collectionTabs.addOnButtonCheckedListener((group, checkedId, checked) -> {
+            if (!checked) return;
+            boolean nextSaved = checkedId == R.id.game_tab_saved;
+            if (showSaved == nextSaved) return;
+            showSaved = nextSaved;
+            selecting = false;
+            selectedIds.clear();
+            if (state != null) showState(state);
+            list.scrollToPosition(0);
+        });
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -102,8 +121,8 @@ public class GameListActivity extends AppCompatActivity {
         });
         model = new ViewModelProvider(this).get(GameListViewModel.class);
         // A new process starts a new sequence of deletion notifications.
-        if (model.state().getValue().deletionVersion < handledDeletionVersion) {
-            handledDeletionVersion = 0;
+        if (model.state().getValue().operationVersion < handledOperationVersion) {
+            handledOperationVersion = 0;
         }
         model.state().observe(this, this::showState);
     }
@@ -118,7 +137,8 @@ public class GameListActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@NonNull Bundle out) {
         out.putBoolean(STATE_SELECTING, selecting);
         out.putBoolean(EXTRA_CURRENT_DELETED, currentDeleted);
-        out.putInt(STATE_DELETION_VERSION, handledDeletionVersion);
+        out.putInt(STATE_OPERATION_VERSION, handledOperationVersion);
+        out.putBoolean(STATE_SAVED_TAB, showSaved);
         out.putStringArrayList(STATE_SELECTION, new ArrayList<>(selectedIds));
         super.onSaveInstanceState(out);
     }
@@ -141,21 +161,38 @@ public class GameListActivity extends AppCompatActivity {
     private void showState(GameListViewModel.State newState) {
         state = newState;
         currentDeleted |= state.deletedIds.contains(currentId);
+        visibleGames.clear();
+        for (GameSummary game : state.games) {
+            if (game.saved == showSaved) visibleGames.add(game);
+        }
         if (!state.busy) {
             Set<String> available = new HashSet<>();
-            for (GameSummary game : state.games) available.add(game.id);
+            for (GameSummary game : visibleGames) available.add(game.id);
             selectedIds.retainAll(available);
-            if (state.deletionVersion > handledDeletionVersion) {
-                handledDeletionVersion = state.deletionVersion;
-                String message = state.failedCount == 0
-                        ? getString(R.string.game_list_deleted_count, state.deletedCount)
-                        : getString(R.string.game_list_delete_partial, state.deletedCount, state.failedCount);
+            if (state.operationVersion > handledOperationVersion) {
+                handledOperationVersion = state.operationVersion;
+                String message;
+                if (state.operation == GameListViewModel.Operation.DELETE) {
+                    message = state.failedCount == 0
+                            ? getString(R.string.game_list_deleted_count, state.changedCount)
+                            : getString(R.string.game_list_delete_partial, state.changedCount, state.failedCount);
+                } else {
+                    String destination = getString(state.operation == GameListViewModel.Operation.SAVE
+                            ? R.string.game_list_saved : R.string.game_list_history);
+                    message = state.failedCount == 0
+                            ? getString(R.string.game_list_moved_count, state.changedCount, destination)
+                            : getString(R.string.game_list_move_partial, state.changedCount, destination, state.failedCount);
+                }
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                 if (selectedIds.isEmpty()) selecting = false;
             }
         }
-        adapter.submit(state.games);
-        emptyView.setVisibility(!state.busy && state.games.isEmpty() ? View.VISIBLE : View.GONE);
+        adapter.submit(visibleGames);
+        emptyView.setText(showSaved ? R.string.game_list_empty : R.string.game_list_history_empty);
+        emptyView.setVisibility(!state.busy && visibleGames.isEmpty() ? View.VISIBLE : View.GONE);
+        for (int i = 0; i < collectionTabs.getChildCount(); i++) {
+            collectionTabs.getChildAt(i).setEnabled(!state.busy);
+        }
         updateToolbar();
     }
 
@@ -187,13 +224,16 @@ public class GameListActivity extends AppCompatActivity {
                 .setTitle(selectedIds.size() == adapter.getItemCount()
                         ? R.string.game_list_deselect_all : R.string.game_list_select_all);
         menu.findItem(R.id.game_delete_selected).setVisible(selecting).setEnabled(!busy() && !selectedIds.isEmpty());
+        menu.findItem(R.id.game_move_selected).setVisible(selecting).setEnabled(!busy() && !selectedIds.isEmpty())
+                .setTitle(moveAction());
         return super.onPrepareOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.game_select || id == R.id.game_select_all || id == R.id.game_delete_selected) {
+        if (id == R.id.game_select || id == R.id.game_select_all || id == R.id.game_delete_selected
+                || id == R.id.game_move_selected) {
             if (busy()) return true;
             if (id == R.id.game_select) {
                 selecting = true;
@@ -202,9 +242,11 @@ public class GameListActivity extends AppCompatActivity {
                 if (selectedIds.size() == adapter.getItemCount()) {
                     selectedIds.clear();
                 } else {
-                    for (GameSummary game : state.games) selectedIds.add(game.id);
+                    for (GameSummary game : visibleGames) selectedIds.add(game.id);
                 }
                 refreshSelection();
+            } else if (id == R.id.game_move_selected) {
+                model.move(new ArrayList<>(selectedIds), !showSaved);
             } else {
                 confirmDelete(new ArrayList<>(selectedIds),
                         getString(R.string.game_list_delete_selected_message, selectedIds.size()));
@@ -257,6 +299,10 @@ public class GameListActivity extends AppCompatActivity {
         return getString(R.string.game_list_players, game.blackName, game.whiteName);
     }
 
+    private int moveAction() {
+        return showSaved ? R.string.game_list_move_to_history : R.string.game_list_move_to_saved;
+    }
+
     private final class GameListAdapter extends RecyclerView.Adapter<RowHolder> {
         private final List<GameSummary> games = new ArrayList<>();
         private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.JAPAN);
@@ -303,6 +349,10 @@ public class GameListActivity extends AppCompatActivity {
             holder.delete.setVisibility(selecting ? View.GONE : View.VISIBLE);
             holder.delete.setEnabled(!busy());
             holder.delete.setOnClickListener(v -> confirmDelete(game));
+            holder.move.setVisibility(selecting ? View.GONE : View.VISIBLE);
+            holder.move.setEnabled(!busy());
+            holder.move.setContentDescription(getString(moveAction()));
+            holder.move.setOnClickListener(v -> model.move(Collections.singletonList(game.id), !showSaved));
         }
     }
 
@@ -310,6 +360,7 @@ public class GameListActivity extends AppCompatActivity {
         final TextView players;
         final TextView details;
         final ImageButton delete;
+        final ImageButton move;
         final CheckBox check;
 
         RowHolder(View itemView) {
@@ -317,6 +368,7 @@ public class GameListActivity extends AppCompatActivity {
             players = itemView.findViewById(R.id.game_players);
             details = itemView.findViewById(R.id.game_details);
             delete = itemView.findViewById(R.id.game_delete);
+            move = itemView.findViewById(R.id.game_move);
             check = itemView.findViewById(R.id.game_check);
         }
     }
