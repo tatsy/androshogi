@@ -29,7 +29,7 @@
     <string name="setting">設定</string>
     <string name="open_kifu">KIF ファイルを開く</string>
     <string name="kifu_file_read_failed">KIF ファイルを読み込めませんでした</string>
-    <string name="paste_kifu">棋譜を貼り付け</string>
+    <string name="paste_kifu">棋譜・SFENを貼り付け</string>
     <string name="save_kifu">KIF ファイルを保存</string>
     <string name="kifu_export_save">保存</string>
     <string name="kifu_export_shift_jis">.kif（Shift_JIS）</string>
@@ -58,6 +58,8 @@
     <string name="analysis_finished">棋譜解析が終了しました</string>
     <string name="kifu_loaded">棋譜データを読み込みました</string>
     <string name="kifu_parse_error_title">棋譜を読み込めませんでした</string>
+    <string name="sfen_loaded">SFEN の局面を読み込みました</string>
+    <string name="sfen_parse_error_title">SFEN を読み込めませんでした</string>
     <string name="engine_unavailable">エンジンを利用できません</string>
     <string name="engine_eval_missing_title">評価関数がありません</string>
     <string name="engine_eval_missing_message">選択中のエンジン用の nn.bin がないため、検討を開始できません。設定で「エンジンの種類」を確認し、「評価関数ファイル」から対応する nn.bin を選択してください。</string>

@@ -17,6 +17,7 @@ import org.androshogi.kifu.KifParser;
 import org.androshogi.kifu.KifTextCodec;
 import org.androshogi.kifu.KifWriter;
 import org.androshogi.kifu.MoveNotation;
+import org.androshogi.kifu.SfenParser;
 
 import org.androshogi.settings.AppSettings;
 import org.androshogi.ui.settings.SettingsActivity;
@@ -1087,15 +1088,40 @@ public class MainActivity extends AppCompatActivity {
         } else {
             // テキストデータの場合
             ClipData.Item item = clipboard.getPrimaryClip().getItemAt(0);
-            String pasteData = item.getText().toString();
-            parseShogiData(pasteData);
+            CharSequence text = item.getText();
+            if (text != null) parsePastedData(text.toString());
         }
+    }
+
+    /** SFEN is a clipboard option; document and shared KIF loading retain their existing behavior. */
+    void parsePastedData(String text) {
+        if (!SfenParser.looksLikeSfen(text)) {
+            parseShogiData(text);
+            return;
+        }
+        if (analysisRun != null || engine.isSearching()) {
+            Toast.makeText(this, R.string.engine_busy, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String sfen;
+        try {
+            sfen = SfenParser.parse(text);
+        } catch (IllegalArgumentException e) {
+            new MaterialAlertDialogBuilder(this, R.style.ThemeOverlay_Androshogi_AlertDialog)
+                    .setTitle(R.string.sfen_parse_error_title)
+                    .setMessage(e.getMessage())
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show();
+            return;
+        }
+        openImportedRecord(new GameRecord(sfen, getString(R.string.default_black_name),
+                getString(R.string.default_white_name)), R.string.sfen_loaded);
     }
 
     /** The game on the board as KIF, or null (with a toast) when there is nothing to write. */
     @Nullable
     private String kifText() {
-        if (!game.record().hasMoves()) {
+        if (!game.record().hasMoves() && Shogi.STARTING_SFEN.equals(game.record().startSfen())) {
             Toast.makeText(this, R.string.kifu_empty, Toast.LENGTH_SHORT).show();
             return null;
         }
@@ -1334,14 +1360,19 @@ public class MainActivity extends AppCompatActivity {
 
         Log.i(TAG, String.format("先手は「%s」\n", parser.blackName()));
         Log.i(TAG, String.format("後手は「%s」\n", parser.whiteName()));
+        openImportedRecord(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
+                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment(),
+                parser.eventName()), R.string.kifu_loaded);
+    }
+
+    private void openImportedRecord(GameRecord record, int message) {
         saveGame();
         invalidatePendingGameLoad();
         clearPinnedReading();
-        game.startNew(new GameRecord(parser.getSFEN(), parser.getMoves(), parser.getTimes(),
-                parser.getComments(), parser.blackName(), parser.whiteName(), parser.getStartComment(),
-                parser.eventName()), false);
+        game.startNew(record, false);
         showRecord();
-        Toast.makeText(this, R.string.kifu_loaded, Toast.LENGTH_SHORT).show();
+        saveGame();
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     /** Puts the names and the evaluation into the player rows, following the board's orientation. */

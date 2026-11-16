@@ -78,6 +78,23 @@ public class GameSessionTest {
         assertEquals("王将戦", saved.record.eventName());
     }
 
+    @Test public void importedSfenSurvivesStartingAnotherGameEvenWithoutMovesOrAnalysis() {
+        String sfen = "4k4/9/9/9/9/9/9/9/4K4 w B2P 1";
+        GameSession game = session();
+        game.startNew(new GameRecord(sfen, "Black", "White"), false);
+        assertFalse(game.isScratchGame());
+        SavedGame saved = game.snapshot(300);
+        game.startNew(empty(), false);
+        assertEquals("id-2", game.id());
+        assertEquals(sfen, saved.record.startSfen());
+        game.load(saved);
+        assertEquals("id-1", game.id());
+        assertEquals(sfen, game.record().startSfen());
+        assertEquals(0, game.record().currentPly());
+        assertEquals(0, game.record().length());
+        assertFalse(game.isScratchGame());
+    }
+
     @Test public void analyzedOrModifiedGameGetsANewId() {
         GameSession game = session();
         game.analysis().put(0, PositionAnalysis.from(Shogi.STARTING_SFEN,
